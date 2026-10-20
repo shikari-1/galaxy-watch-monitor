@@ -1,0 +1,18 @@
+{
+  "name": "Galaxy Watch Hardware Monitor",
+  "short_name": "HW Monitor",
+  "description": "Real-time PC Hardware Telemetry Monitor for Galaxy Watch 4",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/static/icons/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -177,6 +177,51 @@
   });
 
   /**
+   * Fullscreen API Helpers
+   */
+  function enterFullscreen() {
+    const docEl = document.documentElement;
+    const requestFs = docEl.requestFullscreen ||
+                      docEl.webkitRequestFullscreen ||
+                      docEl.mozRequestFullScreen ||
+                      docEl.msRequestFullscreen;
+
+    if (requestFs && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      requestFs.call(docEl).catch(() => {
+        // Will be triggered on first touch interaction
+      });
+    }
+  }
+
+  function toggleFullscreen() {
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!isFullscreen) {
+      enterFullscreen();
+    } else {
+      const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exitFs) exitFs.call(document);
+    }
+  }
+
+  // Automatic Fullscreen Trigger
+  function initAutoFullscreen() {
+    // Attempt fullscreen immediately
+    enterFullscreen();
+
+    // Immediate user activation fallback: on first tap/touch, go fullscreen immediately
+    const onUserTouch = () => {
+      enterFullscreen();
+      ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
+        window.removeEventListener(evt, onUserTouch, { capture: true });
+      });
+    };
+
+    ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
+      window.addEventListener(evt, onUserTouch, { capture: true, passive: true });
+    });
+  }
+
+  /**
    * OLED Anti-Burn-In Pixel Shifting Routine & Scale preservation
    * Subtly moves layout coordinates every 90 seconds while preserving scale
    */
@@ -725,18 +770,14 @@
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTapTime;
 
-        // Double tap detection (within 320ms) -> Fullscreen
-        if (tapLength < 320 && tapLength > 0) {
-          toggleFullscreen();
+        // Double tap (within 350ms) -> Cycle watch face
+        if (tapLength < 350 && tapLength > 0) {
+          cycleNextFace();
           lastTapTime = 0;
         } else {
-          // Single tap -> Cycle watch face
+          // Single tap -> Trigger Fullscreen immediately
           lastTapTime = currentTime;
-          setTimeout(() => {
-            if (lastTapTime === currentTime) {
-              cycleNextFace();
-            }
-          }, 320);
+          enterFullscreen();
         }
 
         // Keep wake lock alive on touch
@@ -846,8 +887,8 @@
    * Initialization
    */
   function init() {
-    // Auto pure-watch mode on small wearable screens
-    if (window.innerWidth <= 500 || window.innerHeight <= 500) {
+    // Auto pure-watch mode on small wearable screens or Android mobile devices
+    if (window.innerWidth <= 768 || window.innerHeight <= 768 || /Android|Wear/i.test(navigator.userAgent)) {
       document.body.classList.add('pure-watch-mode');
     }
 
@@ -858,14 +899,13 @@
 
     // Default to clean 4-metric Dual Arc HUD
     setWatchFace('faceArc');
-
-    // Generate QR code with the current watch URL
-    if (elements.watchUrl) {
-      generateQrCode(elements.watchUrl.textContent.trim());
-    }
+    try {
+      localStorage.setItem('gw4_face', 'faceArc');
+    } catch (e) {}
 
     setupListeners();
     requestWakeLock();
+    initAutoFullscreen();
     startStream();
   }
 
