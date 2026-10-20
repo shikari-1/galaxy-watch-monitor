@@ -211,14 +211,14 @@ def launch_on_watch(adb_cmd, pc_ip, port=8080):
     ])
 
     if code == 0:
-        # Step 1: Brief pause, then simulate tap to trigger instant fullscreen mode
+        # Step 1: Allow page to finish loading, then simulate tap to trigger instant fullscreen mode
         print("[*] Activating fullscreen mode...")
-        time.sleep(1.2)
+        time.sleep(2.5)
         run_adb(adb_cmd, ["shell", "input", "tap", "225", "225"])
 
-        # Step 2: Wait exactly 2 seconds, then tap again to dismiss Chrome's fullscreen warning banner
-        print("[*] Waiting 2s to auto-dismiss Chrome fullscreen exit notice...")
-        time.sleep(2.0)
+        # Step 2: Wait exactly 1.5 seconds, then tap again to auto-dismiss Chrome's fullscreen warning banner
+        print("[*] Waiting 1.5s to auto-dismiss Chrome fullscreen exit notice...")
+        time.sleep(1.5)
         run_adb(adb_cmd, ["shell", "input", "tap", "225", "225"])
 
         print("\n" + "=" * 64)

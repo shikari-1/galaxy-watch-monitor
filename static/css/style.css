@@ -1024,15 +1024,15 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin-top: -32px;
+  gap: 8px;
+  margin-top: -54px;
   z-index: 2;
 }
 
 .hud-gauge-box {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 178px;
+  height: 178px;
 }
 
 .hud-arc-svg {
@@ -1044,16 +1044,16 @@ input:checked + .slider:before {
 .arc-bg {
   fill: none;
   stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 12;
+  stroke-width: 13;
   stroke-linecap: round;
 }
 
 .arc-fg {
   fill: none;
-  stroke-width: 12;
+  stroke-width: 13;
   stroke-linecap: round;
-  stroke-dasharray: 280 280;
-  stroke-dashoffset: 280;
+  stroke-dasharray: 315 315;
+  stroke-dashoffset: 315;
 }
 
 .arc-cyan {
@@ -1071,14 +1071,14 @@ input:checked + .slider:before {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 2px;
+  padding-bottom: 4px;
 }
 
 .hud-tag {
   font-family: var(--font-hud, 'Chakra Petch', sans-serif);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 2px;
 }
@@ -1093,41 +1093,43 @@ input:checked + .slider:before {
 
 .hud-temp-wrap {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: center;
 }
 
 .hud-temp {
   font-family: var(--font-hud, 'Chakra Petch', sans-serif);
-  font-size: 34px;
+  font-size: 52px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 0.9;
   color: #ffffff;
 }
 
 .hud-deg {
   font-family: var(--font-hud, 'Chakra Petch', sans-serif);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted, #8b92a5);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 0.85;
+  color: rgba(255, 255, 255, 0.9);
   margin-left: 2px;
+  margin-top: 2px;
 }
 
 /* Bottom Memory Section */
 .hud-bottom-bar {
   position: absolute;
-  bottom: 50px;
+  bottom: 66px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 220px;
+  gap: 13px;
+  width: 275px;
   z-index: 2;
 }
 
 .hud-bar-segment {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .hud-bar-meta {
@@ -1135,13 +1137,13 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-mono, monospace);
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .bar-lbl {
   font-weight: 700;
   letter-spacing: 1px;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .bar-lbl.cyan {
@@ -1154,13 +1156,13 @@ input:checked + .slider:before {
 
 .bar-val {
   color: #d1d5db;
-  font-size: 11px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
 .mini-progress {
   width: 100%;
-  height: 7px;
+  height: 11px;
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   overflow: hidden;

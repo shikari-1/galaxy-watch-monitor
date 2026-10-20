@@ -527,11 +527,11 @@
     if (elements.hudGpuTemp) elements.hudGpuTemp.textContent = gpuTemp;
     if (elements.hudCpuTemp) elements.hudCpuTemp.textContent = cpuTemp;
 
-    // Dual Speedometer arcs track Temperature (0 - 100°C) with exact path length 278
+    // Dual Speedometer arcs track Temperature (0 - 100°C) with exact path length ~310
     const gpuTempPct = Math.min(100, Math.max(0, gpuTemp));
     const cpuTempPct = Math.min(100, Math.max(0, cpuTemp));
-    setPathProgress(elements.hudGpuArc, gpuTempPct, 278);
-    setPathProgress(elements.hudCpuArc, cpuTempPct, 278);
+    setPathProgress(elements.hudGpuArc, gpuTempPct, 310);
+    setPathProgress(elements.hudCpuArc, cpuTempPct, 310);
 
     // Dynamic thermal alert coloring on gauges
     if (elements.hudGpuArc) {
