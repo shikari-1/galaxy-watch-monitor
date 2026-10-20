@@ -259,7 +259,7 @@ def hardware_monitor_worker():
         except Exception as e:
             logger.error(f"Error updating hardware metrics: {e}")
             
-        time.sleep(1.0)
+        time.sleep(1.5)
 
 # Routes
 @app.before_request

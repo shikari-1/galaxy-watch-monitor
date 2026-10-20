@@ -13,7 +13,7 @@
   const faceButtons = document.querySelectorAll('.theme-btn');
   let eventSource = null;
   let pollIntervalTimer = null;
-  let updateIntervalMs = 1000;
+  let updateIntervalMs = 1500;
   let wakeLock = null;
   let lastTapTime = 0;
   let burnInEnabled = true;
