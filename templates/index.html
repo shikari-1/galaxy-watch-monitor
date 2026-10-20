@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Galaxy Watch 4 Real-time Desktop Hardware Monitor for CPU, GPU RTX 3060 Ti, and RAM">
+  <title>Galaxy Watch Hardware Monitor</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+</head>
+<body class="desktop-mode">
+  
+  <!-- Outer Wrapper for PC / Desktop Companion View -->
+  <div class="companion-layout" id="companionLayout">
+    
+    <!-- Left / Top Info Panel (visible on PC / phone) -->
+    <aside class="desktop-sidebar" id="desktopSidebar">
+      <div class="brand-header">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" stroke="#00f3ff" />
+            <path d="M12 6v6l4 2" stroke="#ff3366" stroke-linecap="round" />
+            <circle cx="12" cy="12" r="2" fill="#00f3ff" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">GW4 Monitor</h1>
+          <p class="brand-subtitle">Desktop Hardware Telemetry</p>
+        </div>
+      </div>
+
+      <!-- Connection & Watch Setup Card -->
+      <div class="info-card connection-card">
+        <div class="card-header">
+          <span class="status-pulse-live"></span>
+          <h3>Watch Connection</h3>
+        </div>
+        <p class="card-instruction">Open this URL on your Galaxy Watch 4 browser (Samsung Internet / WristNet):</p>
+        
+        <div class="url-badge-box" id="urlBox">
+          <code id="watchUrl">http://{{ local_ip }}:{{ port }}</code>
+          <button class="btn-copy" id="btnCopyUrl" title="Copy URL">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Phone Scan QR Canvas -->
+        <div class="qr-container">
+          <div class="qr-box">
+            <canvas id="qrCanvas" width="130" height="130"></canvas>
+          </div>
+          <div class="qr-info">
+            <span class="qr-tag">Quick Phone Scan</span>
+            <p>Scan with your phone to open, then tap <strong>"Open on Watch"</strong> in Samsung Internet!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme & Layout Selector -->
+      <div class="info-card controls-card">
+        <h3>Watch Face Style</h3>
+        <div class="theme-buttons">
+          <button class="theme-btn active" data-face="cyber">
+            <span class="dot cyber"></span> Cyber Ring
+          </button>
+          <button class="theme-btn" data-face="arc">
+            <span class="dot arc"></span> Dual Arc
+          </button>
+          <button class="theme-btn" data-face="minimal">
+            <span class="dot minimal"></span> Minimal OLED
+          </button>
+          <button class="theme-btn" data-face="grid">
+            <span class="dot grid"></span> Stat Grid
+          </button>
+          <button class="theme-btn" data-face="chrono">
+            <span class="dot chrono"></span> Chrono Cockpit
+          </button>
+        </div>
+
+        <!-- Color Palette Switcher -->
+        <div class="setting-group theme-group">
+          <div class="setting-title-row">
+            <label class="setting-subhead">Color Theme</label>
+            <span class="active-theme-name" id="activeThemeLabel">Cyberpunk Neon</span>
+          </div>
+          <div class="color-palette-buttons">
+            <button class="palette-btn active" data-theme="cyber" title="Cyberpunk Neon (Cyan & Coral)">
+              <span class="swatch-pair"><span class="sw-1" style="background:#00f3ff"></span><span class="sw-2" style="background:#ff3366"></span></span>
+              Cyber
+            </button>
+            <button class="palette-btn" data-theme="matrix" title="Toxic Matrix (Emerald & Lime)">
+              <span class="swatch-pair"><span class="sw-1" style="background:#00ff66"></span><span class="sw-2" style="background:#a6ff00"></span></span>
+              Matrix
+            </button>
+            <button class="palette-btn" data-theme="solar" title="Solar Flare (Amber & Orange)">
+              <span class="swatch-pair"><span class="sw-1" style="background:#ffaa00"></span><span class="sw-2" style="background:#ff3300"></span></span>
+              Solar
+            </button>
+            <button class="palette-btn" data-theme="synthwave" title="Synthwave (Pink & Violet)">
+              <span class="swatch-pair"><span class="sw-1" style="background:#ff007f"></span><span class="sw-2" style="background:#9d4edd"></span></span>
+              Synth
+            </button>
+            <button class="palette-btn" data-theme="stealth" title="Stealth Ice (Pure White & Ice Blue)">
+              <span class="swatch-pair"><span class="sw-1" style="background:#f0f8ff"></span><span class="sw-2" style="background:#64b5f6"></span></span>
+              Ice
+            </button>
+          </div>
+        </div>
+
+        <!-- Thermal Alert Settings -->
+        <div class="setting-group thermal-group">
+          <div class="setting-title-row">
+            <label class="setting-subhead">Thermal Alert Thresholds</label>
+            <span class="thermal-pill" id="thermalStatusPill">OPTIMAL ❄️</span>
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <span>Warning Temp:</span>
+              <strong id="warnVal">75°C</strong>
+            </div>
+            <input type="range" id="warnSlider" min="60" max="85" value="75" class="range-slider warn-slider">
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <span>Critical Temp:</span>
+              <strong id="critVal">83°C</strong>
+            </div>
+            <input type="range" id="critSlider" min="70" max="95" value="83" class="range-slider crit-slider">
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <label for="intervalSelect">Telemetry Rate</label>
+          <select id="intervalSelect" class="custom-select">
+            <option value="500">500ms (High Perf)</option>
+            <option value="1000" selected>1000ms (Standard 1Hz)</option>
+            <option value="2000">2000ms (Cooling Mode)</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label>OLED Anti-Burn-In</label>
+          <label class="switch">
+            <input type="checkbox" id="burnInToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <label>Watch Frame Bezel</label>
+          <label class="switch">
+            <input type="checkbox" id="frameToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Live Hardware Summary -->
+      <div class="info-card hw-summary-card">
+        <h3>Live PC Hardware</h3>
+        <div class="hw-item">
+          <span class="hw-label">GPU</span>
+          <span class="hw-val" id="pcGpuName">NVIDIA RTX 3060 Ti</span>
+        </div>
+        <div class="hw-item">
+          <span class="hw-label">GPU Temp / VRAM</span>
+          <span class="hw-val" id="pcGpuStats">-- °C | -- MB</span>
+        </div>
+        <div class="hw-item">
+          <span class="hw-label">CPU Usage / Temp</span>
+          <span class="hw-val" id="pcCpuStats">-- % | -- °C</span>
+        </div>
+        <div class="hw-item">
+          <span class="hw-label">System RAM</span>
+          <span class="hw-val" id="pcRamStats">-- GB / -- GB</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <a href="https://github.com" target="_blank" class="github-link">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          Open-Source GW4 Hardware Monitor
+        </a>
+      </div>
+    </aside>
+
+    <!-- Center Stage: The Galaxy Watch 4 Screen -->
+    <main class="watch-stage" id="watchStage">
+      
+      <!-- Watch Simulation Bezel (hidden in native watch browser) -->
+      <div class="watch-case-bezel" id="watchCaseBezel">
+        <div class="watch-top-button"></div>
+        <div class="watch-bottom-button"></div>
+        <div class="watch-bezel-ring">
+          <div class="watch-bezel-markers"></div>
+          
+          <!-- Round Galaxy Watch 4 Display Screen (396x396 or 450x450 AMOLED) -->
+          <div class="gw4-viewport" id="gw4Viewport" title="Tap to cycle faces, Double tap for fullscreen">
+            
+            <!-- Safe Circular Container for Burn-in Shifting -->
+            <div class="burn-in-wrapper" id="burnInWrapper">
+
+              <!-- ======================================================== -->
+              <!-- WATCH FACE 1: CYBER RING (Default Dual Neon Circular)   -->
+              <!-- ======================================================== -->
+              <div class="watch-face active" id="faceCyber">
+                
+                <!-- Circular SVG Gauges -->
+                <svg class="radial-svg" viewBox="0 0 400 400">
+                  <defs>
+                    <linearGradient id="gradGpuCyber" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stop-color="#0066ff" />
+                      <stop offset="70%" stop-color="#00f3ff" />
+                      <stop offset="100%" stop-color="#38ef7d" />
+                    </linearGradient>
+                    <linearGradient id="gradCpuCyber" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stop-color="#ff0055" />
+                      <stop offset="60%" stop-color="#ff3366" />
+                      <stop offset="100%" stop-color="#ffaa00" />
+                    </linearGradient>
+                    <linearGradient id="gradRamCyber" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stop-color="#9d4edd" />
+                      <stop offset="100%" stop-color="#c77dff" />
+                    </linearGradient>
+                    <filter id="neonGlowGpu" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    <filter id="neonGlowCpu" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  <!-- Background circular track rims -->
+                  <circle cx="200" cy="200" r="168" class="track-bg" />
+                  
+                  <!-- Left Semi-Arc: GPU Usage & Temp (Radius 168) -->
+                  <!-- Circumference = 2 * PI * 168 = 1055.57. Half arc length ~ 380 -->
+                  <path id="cyberGpuTrack" class="gauge-track" d="M 200 32 A 168 168 0 0 0 200 368" />
+                  <path id="cyberGpuArc" class="gauge-bar gpu-bar" d="M 200 32 A 168 168 0 0 0 200 368" stroke="url(#gradGpuCyber)" filter="url(#neonGlowGpu)" />
+
+                  <!-- Right Semi-Arc: CPU Usage & Temp (Radius 168) -->
+                  <path id="cyberCpuTrack" class="gauge-track" d="M 200 32 A 168 168 0 0 1 200 368" />
+                  <path id="cyberCpuArc" class="gauge-bar cpu-bar" d="M 200 32 A 168 168 0 0 1 200 368" stroke="url(#gradCpuCyber)" filter="url(#neonGlowCpu)" />
+
+                  <!-- Inner Arc: RAM Usage (Radius 136) -->
+                  <path id="cyberRamTrack" class="gauge-track-thin" d="M 120 310 A 136 136 0 0 0 280 310" />
+                  <path id="cyberRamArc" class="gauge-bar ram-bar" d="M 120 310 A 136 136 0 0 0 280 310" stroke="url(#gradRamCyber)" />
+                </svg>
+
+                <!-- On-Screen Telemetry Elements -->
+                <div class="cyber-header">
+                  <span class="pulse-indicator" id="liveDot" title="Live telemetry pulse"></span>
+                  <span class="digital-clock" id="cyberClock">12:00</span>
+                  <span class="fps-badge" id="cyberFreq">3.8G</span>
+                  <span class="thermal-warning-badge" id="cyberThermalBadge">🔥 HOT</span>
+                </div>
+
+                <!-- Main Middle Readout -->
+                <div class="cyber-metrics-row">
+                  <!-- Left: GPU -->
+                  <div class="metric-cluster gpu-cluster">
+                    <span class="metric-badge gpu-tag">GPU</span>
+                    <div class="temp-display">
+                      <span class="temp-val" id="cyberGpuTemp">41</span>
+                      <span class="temp-unit">°C</span>
+                    </div>
+                    <div class="sub-stat">
+                      <span class="sub-label">LOAD</span>
+                      <span class="sub-val" id="cyberGpuLoad">53%</span>
+                    </div>
+                    <div class="sub-stat">
+                      <span class="sub-label">VRAM</span>
+                      <span class="sub-val" id="cyberGpuVram">1.3G</span>
+                    </div>
+                  </div>
+
+                  <!-- Center Divider / Power -->
+                  <div class="center-stat-column">
+                    <div class="pwr-box">
+                      <span class="pwr-val" id="cyberGpuPwr">16</span>
+                      <span class="pwr-unit">W</span>
+                    </div>
+                    <div class="center-label">PWR</div>
+                  </div>
+
+                  <!-- Right: CPU -->
+                  <div class="metric-cluster cpu-cluster">
+                    <span class="metric-badge cpu-tag">CPU</span>
+                    <div class="temp-display">
+                      <span class="temp-val" id="cyberCpuTemp">45</span>
+                      <span class="temp-unit">°C</span>
+                    </div>
+                    <div class="sub-stat">
+                      <span class="sub-label">LOAD</span>
+                      <span class="sub-val" id="cyberCpuLoad">18%</span>
+                    </div>
+                    <div class="sub-stat">
+                      <span class="sub-label">FREQ</span>
+                      <span class="sub-val" id="cyberCpuMhz">3800</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom RAM & Network Readout -->
+                <div class="cyber-footer">
+                  <span class="footer-stat">
+                    <span class="muted">RAM</span> <strong id="cyberRamVal">11.2GB</strong>
+                  </span>
+                  <span class="footer-divider">•</span>
+                  <span class="footer-stat">
+                    <strong id="cyberRamPct">70%</strong>
+                  </span>
+                </div>
+              </div>
+
+              <!-- ======================================================== -->
+              <!-- WATCH FACE 2: DUAL ARC HUD                              -->
+              <!-- ======================================================== -->
+              <div class="watch-face" id="faceArc">
+                <div class="hud-top">
+                  <span class="hud-host" id="hudHost">DESKTOP</span>
+                  <div class="hud-clock-group">
+                    <span class="digital-clock" id="hudClock">12:00</span>
+                    <span class="thermal-warning-badge" id="hudThermalBadge">🔥 HOT</span>
+                  </div>
+                  <span class="hud-net" id="hudNet">0 K/s</span>
+                </div>
+
+                <div class="hud-gauges-container">
+                  <!-- GPU Speedometer Arc -->
+                  <div class="hud-gauge-box">
+                    <svg class="hud-arc-svg" viewBox="0 0 160 160">
+                      <path class="arc-bg" d="M 25 130 A 65 65 0 1 1 135 130" />
+                      <path id="hudGpuArc" class="arc-fg arc-cyan" d="M 25 130 A 65 65 0 1 1 135 130" />
+                    </svg>
+                    <div class="hud-arc-center">
+                      <span class="hud-tag cyan">GPU</span>
+                      <span class="hud-temp" id="hudGpuTemp">41°</span>
+                      <span class="hud-sub" id="hudGpuLoad">53%</span>
+                    </div>
+                  </div>
+
+                  <!-- CPU Speedometer Arc -->
+                  <div class="hud-gauge-box">
+                    <svg class="hud-arc-svg" viewBox="0 0 160 160">
+                      <path class="arc-bg" d="M 25 130 A 65 65 0 1 1 135 130" />
+                      <path id="hudCpuArc" class="arc-fg arc-coral" d="M 25 130 A 65 65 0 1 1 135 130" />
+                    </svg>
+                    <div class="hud-arc-center">
+                      <span class="hud-tag coral">CPU</span>
+                      <span class="hud-temp" id="hudCpuTemp">45°</span>
+                      <span class="hud-sub" id="hudCpuLoad">18%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="hud-bottom-bar">
+                  <div class="hud-bar-segment">
+                    <span class="bar-lbl">VRAM</span>
+                    <div class="mini-progress">
+                      <div class="bar-fill cyan-fill" id="hudVramBar" style="width: 25%"></div>
+                    </div>
+                    <span class="bar-val" id="hudVramVal">25%</span>
+                  </div>
+                  <div class="hud-bar-segment">
+                    <span class="bar-lbl">RAM</span>
+                    <div class="mini-progress">
+                      <div class="bar-fill purple-fill" id="hudRamBar" style="width: 70%"></div>
+                    </div>
+                    <span class="bar-val" id="hudRamVal">70%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ======================================================== -->
+              <!-- WATCH FACE 3: MINIMAL OLED (Pure Black Battery Saver)   -->
+              <!-- ======================================================== -->
+              <div class="watch-face" id="faceMinimal">
+                <div class="minimal-wrapper">
+                  <div class="minimal-time" id="minClock">12:00</div>
+                  
+                  <div class="minimal-duo">
+                    <div class="min-side">
+                      <span class="min-label">GPU</span>
+                      <div class="min-main-temp">
+                        <span id="minGpuTemp">41</span><span class="min-deg">°</span>
+                      </div>
+                      <div class="min-sub"><span id="minGpuLoad">53</span>%</div>
+                    </div>
+
+                    <div class="min-separator"></div>
+
+                    <div class="min-side">
+                      <span class="min-label">CPU</span>
+                      <div class="min-main-temp">
+                        <span id="minCpuTemp">45</span><span class="min-deg">°</span>
+                      </div>
+                      <div class="min-sub"><span id="minCpuLoad">18</span>%</div>
+                    </div>
+                  </div>
+
+                  <div class="minimal-footer">
+                    <div class="min-stat-chip">RAM <strong id="minRam">70%</strong></div>
+                    <div class="min-stat-chip">PWR <strong id="minPwr">16W</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ======================================================== -->
+              <!-- WATCH FACE 4: STAT GRID / MISSION CONTROL               -->
+              <!-- ======================================================== -->
+              <div class="watch-face" id="faceGrid">
+                <div class="grid-quad">
+                  <!-- Q1: GPU -->
+                  <div class="grid-card q-gpu">
+                    <div class="grid-head">
+                      <span>GPU</span>
+                      <strong id="gridGpuTemp">41°C</strong>
+                    </div>
+                    <div class="grid-big-val" id="gridGpuLoad">53%</div>
+                    <div class="grid-sub" id="gridGpuVram">VRAM 1.3G</div>
+                  </div>
+
+                  <!-- Q2: CPU -->
+                  <div class="grid-card q-cpu">
+                    <div class="grid-head">
+                      <span>CPU</span>
+                      <strong id="gridCpuTemp">45°C</strong>
+                    </div>
+                    <div class="grid-big-val" id="gridCpuLoad">18%</div>
+                    <div class="grid-sub" id="gridCpuClock">3.8 GHz</div>
+                  </div>
+
+                  <!-- Q3: RAM -->
+                  <div class="grid-card q-ram">
+                    <div class="grid-head">
+                      <span>RAM</span>
+                      <strong id="gridRamPct">70%</strong>
+                    </div>
+                    <div class="grid-big-val" id="gridRamGb">11.2G</div>
+                    <div class="grid-sub">TOTAL 16G</div>
+                  </div>
+
+                  <!-- Q4: MISC / POWER -->
+                  <div class="grid-card q-pwr">
+                    <div class="grid-head">
+                      <span>PWR</span>
+                      <strong id="gridPwr">16W</strong>
+                    </div>
+                    <div class="grid-big-val" id="gridClockMini">12:00</div>
+                    <div class="grid-sub" id="gridNet">0 KB/s</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ======================================================== -->
+              <!-- WATCH FACE 5: CHRONO COCKPIT / TACHOMETER               -->
+              <!-- ======================================================== -->
+              <div class="watch-face" id="faceChrono">
+                <div class="chrono-wrapper">
+                  <!-- SVG Radial Tachometer Ticks & Arcs -->
+                  <svg class="chrono-svg" viewBox="0 0 400 400">
+                    <defs>
+                      <linearGradient id="gradChronoGpu" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="var(--gpu-secondary, #0066ff)" />
+                        <stop offset="100%" stop-color="var(--gpu-primary, #00f3ff)" />
+                      </linearGradient>
+                      <linearGradient id="gradChronoCpu" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="var(--cpu-secondary, #ff0055)" />
+                        <stop offset="100%" stop-color="var(--cpu-primary, #ff3366)" />
+                      </linearGradient>
+                      <linearGradient id="gradChronoRam" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="var(--ram-primary, #a855f7)" />
+                        <stop offset="100%" stop-color="var(--ram-secondary, #c77dff)" />
+                      </linearGradient>
+                    </defs>
+
+                    <!-- Outer circular tick marks -->
+                    <circle cx="200" cy="200" r="186" class="chrono-rim-bg" />
+                    <circle cx="200" cy="200" r="186" class="chrono-ticks-ring" />
+
+                    <!-- Left Gauge Track & Arc: GPU Tachometer -->
+                    <path class="chrono-track-bg" d="M 85 110 A 150 150 0 0 0 85 290" />
+                    <path id="chronoGpuArc" class="chrono-bar gpu-bar" d="M 85 110 A 150 150 0 0 0 85 290" stroke="url(#gradChronoGpu)" />
+
+                    <!-- Right Gauge Track & Arc: CPU Tachometer -->
+                    <path class="chrono-track-bg" d="M 315 110 A 150 150 0 0 1 315 290" />
+                    <path id="chronoCpuArc" class="chrono-bar cpu-bar" d="M 315 110 A 150 150 0 0 1 315 290" stroke="url(#gradChronoCpu)" />
+
+                    <!-- Bottom RAM Arc -->
+                    <path class="chrono-track-ram" d="M 140 348 A 160 160 0 0 0 260 348" />
+                    <path id="chronoRamArc" class="chrono-bar-ram" d="M 140 348 A 160 160 0 0 0 260 348" stroke="url(#gradChronoRam)" />
+                  </svg>
+
+                  <!-- Top Time & RPM badge -->
+                  <div class="chrono-header">
+                    <span class="chrono-badge">COCKPIT</span>
+                    <span class="digital-clock chrono-clock" id="chronoClock">12:00</span>
+                    <span class="chrono-badge" id="chronoGpuFan">FAN 45%</span>
+                  </div>
+
+                  <!-- Central Cockpit Clusters -->
+                  <div class="chrono-clusters">
+                    <!-- Left: GPU -->
+                    <div class="chrono-gauge-cluster gpu-cluster">
+                      <span class="cluster-tag gpu-tag">GPU</span>
+                      <div class="cluster-main">
+                        <span class="cluster-val" id="chronoGpuTemp">41</span>
+                        <span class="cluster-deg">°C</span>
+                      </div>
+                      <div class="cluster-sub">
+                        <span class="sub-key">LOAD</span>
+                        <span class="sub-num" id="chronoGpuLoad">53%</span>
+                      </div>
+                      <div class="cluster-sub">
+                        <span class="sub-key">VRAM</span>
+                        <span class="sub-num" id="chronoGpuVram">1.3G</span>
+                      </div>
+                      <div class="cluster-sub">
+                        <span class="sub-key">CLK</span>
+                        <span class="sub-num" id="chronoGpuClock">1770M</span>
+                      </div>
+                    </div>
+
+                    <!-- Center Divider & Power/Alert -->
+                    <div class="chrono-center-cluster">
+                      <div class="chrono-pwr-badge">
+                        <span class="chrono-pwr-val" id="chronoPwr">16</span>
+                        <span class="chrono-pwr-unit">W</span>
+                      </div>
+                      <div class="chrono-status-badge" id="chronoStatusBadge">
+                        <span>NORMAL</span>
+                      </div>
+                    </div>
+
+                    <!-- Right: CPU -->
+                    <div class="chrono-gauge-cluster cpu-cluster">
+                      <span class="cluster-tag cpu-tag">CPU</span>
+                      <div class="cluster-main">
+                        <span class="cluster-val" id="chronoCpuTemp">45</span>
+                        <span class="cluster-deg">°C</span>
+                      </div>
+                      <div class="cluster-sub">
+                        <span class="sub-key">LOAD</span>
+                        <span class="sub-num" id="chronoCpuLoad">18%</span>
+                      </div>
+                      <div class="cluster-sub">
+                        <span class="sub-key">FREQ</span>
+                        <span class="sub-num" id="chronoCpuFreq">3.8G</span>
+                      </div>
+                      <div class="cluster-sub">
+                        <span class="sub-key">NET</span>
+                        <span class="sub-num" id="chronoNet">0K/s</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Bottom RAM Readout -->
+                  <div class="chrono-footer">
+                    <span class="chrono-footer-lbl">RAM</span>
+                    <strong class="chrono-footer-val" id="chronoRam">11.2GB (70%)</strong>
+                  </div>
+                </div>
+              </div>
+
+            </div> <!-- /burn-in-wrapper -->
+
+            <!-- Watch Touch Screen Overlay Hints -->
+            <div class="watch-touch-hint" id="touchHint">Tap face to cycle • Long-press theme • Double-tap full</div>
+          </div> <!-- /gw4-viewport -->
+
+        </div> <!-- /watch-bezel-ring -->
+      </div> <!-- /watch-case-bezel -->
+
+      <!-- Quick Action Floating Bar (Under watch simulator) -->
+      <div class="watch-stage-controls">
+        <button class="btn-action" id="btnFullscreen" title="Toggle Fullscreen">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+          Fullscreen
+        </button>
+        <button class="btn-action" id="btnNextFace" title="Cycle Face">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+          Next Style
+        </button>
+        <button class="btn-action" id="btnPureWatch" title="Hide Desktop UI">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+          </svg>
+          Pure Watch Mode
+        </button>
+      </div>
+
+    </main>
+
+  </div> <!-- /companion-layout -->
+
+  <!-- Toast Notification -->
+  <div class="toast-popup" id="toast">URL copied to clipboard!</div>
+
+  <!-- QR Code & Dashboard Scripts -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
