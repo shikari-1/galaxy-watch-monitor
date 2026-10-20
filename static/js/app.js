@@ -9,7 +9,7 @@
 
   // State
   let currentFaceIndex = 0;
-  const faces = ['faceCyber', 'faceArc', 'faceMinimal', 'faceGrid', 'faceChrono'];
+  const faces = ['faceArc', 'faceCyber', 'faceMinimal', 'faceGrid', 'faceChrono'];
   const faceButtons = document.querySelectorAll('.theme-btn');
   let eventSource = null;
   let pollIntervalTimer = null;
@@ -478,21 +478,44 @@
       elements.cyberRamArc.style.strokeDashoffset = ramOffset;
     }
 
-    // --- FACE 2: DUAL ARC HUD ---
-    if (elements.hudHost) elements.hudHost.textContent = (host.name || 'DESKTOP').toUpperCase();
-    if (elements.hudGpuTemp) elements.hudGpuTemp.textContent = `${gpuTemp}°`;
-    if (elements.hudGpuLoad) elements.hudGpuLoad.textContent = `${gpuUsage}%`;
-    if (elements.hudCpuTemp) elements.hudCpuTemp.textContent = `${cpuTemp}°`;
-    if (elements.hudCpuLoad) elements.hudCpuLoad.textContent = `${cpuUsage}%`;
-    if (elements.hudNet) elements.hudNet.textContent = `↓ ${net.download_kbps || 0} KB/s`;
+    // --- FACE 2: DUAL ARC HUD (Clean 4-Metric Focused) ---
+    if (elements.hudGpuTemp) elements.hudGpuTemp.textContent = gpuTemp;
+    if (elements.hudCpuTemp) elements.hudCpuTemp.textContent = cpuTemp;
 
-    // Arc HUD dash calculation using exact path length (278) to prevent repeating dash wrap-around
-    setPathProgress(elements.hudGpuArc, gpuUsage, 278);
-    setPathProgress(elements.hudCpuArc, cpuUsage, 278);
+    // Dual Speedometer arcs track Temperature (0 - 100°C) with exact path length 278
+    const gpuTempPct = Math.min(100, Math.max(0, gpuTemp));
+    const cpuTempPct = Math.min(100, Math.max(0, cpuTemp));
+    setPathProgress(elements.hudGpuArc, gpuTempPct, 278);
+    setPathProgress(elements.hudCpuArc, cpuTempPct, 278);
+
+    // Dynamic thermal alert coloring on gauges
+    if (elements.hudGpuArc) {
+      if (gpuTemp >= critThreshold) {
+        elements.hudGpuArc.style.stroke = 'var(--crit-color, #ff0044)';
+      } else if (gpuTemp >= warnThreshold) {
+        elements.hudGpuArc.style.stroke = 'var(--warn-color, #ffaa00)';
+      } else {
+        elements.hudGpuArc.style.stroke = '';
+      }
+    }
+    if (elements.hudCpuArc) {
+      if (cpuTemp >= critThreshold) {
+        elements.hudCpuArc.style.stroke = 'var(--crit-color, #ff0044)';
+      } else if (cpuTemp >= warnThreshold) {
+        elements.hudCpuArc.style.stroke = 'var(--warn-color, #ffaa00)';
+      } else {
+        elements.hudCpuArc.style.stroke = '';
+      }
+    }
+
+    // Memory formatted with GB and percentage
+    const vramUsedGb = (gpu.vram_used_mb / 1024).toFixed(1);
+    const vramTotalGb = (gpu.vram_total_mb / 1024).toFixed(1);
     if (elements.hudVramBar) elements.hudVramBar.style.width = `${gpuVramPct}%`;
-    if (elements.hudVramVal) elements.hudVramVal.textContent = `${gpuVramPct}%`;
+    if (elements.hudVramVal) elements.hudVramVal.textContent = `${vramUsedGb} / ${vramTotalGb}G (${gpuVramPct}%)`;
+
     if (elements.hudRamBar) elements.hudRamBar.style.width = `${ramPct}%`;
-    if (elements.hudRamVal) elements.hudRamVal.textContent = `${ramPct}%`;
+    if (elements.hudRamVal) elements.hudRamVal.textContent = `${ramUsedGb} / ${ramTotalGb}G (${ramPct}%)`;
 
     // --- FACE 3: MINIMAL OLED ---
     if (elements.minGpuTemp) elements.minGpuTemp.textContent = gpuTemp;
@@ -833,13 +856,8 @@
     // Apply saved or default theme
     setTheme(currentTheme, false);
 
-    // Apply saved watch face preference
-    try {
-      const savedFace = localStorage.getItem('gw4_face');
-      if (savedFace && faces.includes(savedFace)) {
-        setWatchFace(savedFace);
-      }
-    } catch (e) {}
+    // Default to clean 4-metric Dual Arc HUD
+    setWatchFace('faceArc');
 
     // Generate QR code with the current watch URL
     if (elements.watchUrl) {

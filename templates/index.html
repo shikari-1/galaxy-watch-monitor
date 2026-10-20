@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="/static/css/style.css?v={{ build_id }}">
   <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
 </head>
-<body class="desktop-mode">
+<body>
   
   <!-- Outer Wrapper for PC / Desktop Companion View -->
   <div class="companion-layout" id="companionLayout">
@@ -217,7 +217,7 @@
               <!-- ======================================================== -->
               <!-- WATCH FACE 1: CYBER RING (Default Dual Neon Circular)   -->
               <!-- ======================================================== -->
-              <div class="watch-face active" id="faceCyber">
+              <div class="watch-face" id="faceCyber">
                 
                 <!-- Circular SVG Gauges -->
                 <svg class="radial-svg" viewBox="0 0 400 400">
@@ -336,20 +336,13 @@
               </div>
 
               <!-- ======================================================== -->
-              <!-- WATCH FACE 2: DUAL ARC HUD                              -->
+              <!-- WATCH FACE 2: DUAL ARC HUD (Clean 4-Metric Focused)      -->
               <!-- ======================================================== -->
-              <div class="watch-face" id="faceArc">
-                <div class="hud-top">
-                  <span class="hud-host" id="hudHost">DESKTOP</span>
-                  <div class="hud-clock-group">
-                    <span class="digital-clock" id="hudClock">12:00</span>
-                    <span class="thermal-warning-badge" id="hudThermalBadge">🔥 HOT</span>
-                  </div>
-                  <span class="hud-net" id="hudNet">0 K/s</span>
-                </div>
-
+              <div class="watch-face active" id="faceArc">
+                
+                <!-- Central Dual Temperature Gauges (GPU & CPU) -->
                 <div class="hud-gauges-container">
-                  <!-- GPU Speedometer Arc -->
+                  <!-- GPU Speedometer Arc (Temperature) -->
                   <div class="hud-gauge-box">
                     <svg class="hud-arc-svg" viewBox="0 0 160 160">
                       <path class="arc-bg" d="M 25 130 A 65 65 0 1 1 135 130" />
@@ -357,12 +350,14 @@
                     </svg>
                     <div class="hud-arc-center">
                       <span class="hud-tag cyan">GPU</span>
-                      <span class="hud-temp" id="hudGpuTemp">41°</span>
-                      <span class="hud-sub" id="hudGpuLoad">53%</span>
+                      <div class="hud-temp-wrap">
+                        <span class="hud-temp" id="hudGpuTemp">--</span>
+                        <span class="hud-deg">°</span>
+                      </div>
                     </div>
                   </div>
 
-                  <!-- CPU Speedometer Arc -->
+                  <!-- CPU Speedometer Arc (Temperature) -->
                   <div class="hud-gauge-box">
                     <svg class="hud-arc-svg" viewBox="0 0 160 160">
                       <path class="arc-bg" d="M 25 130 A 65 65 0 1 1 135 130" />
@@ -370,28 +365,37 @@
                     </svg>
                     <div class="hud-arc-center">
                       <span class="hud-tag coral">CPU</span>
-                      <span class="hud-temp" id="hudCpuTemp">45°</span>
-                      <span class="hud-sub" id="hudCpuLoad">18%</span>
+                      <div class="hud-temp-wrap">
+                        <span class="hud-temp" id="hudCpuTemp">--</span>
+                        <span class="hud-deg">°</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                <!-- Bottom Memory Readouts: VRAM & RAM -->
                 <div class="hud-bottom-bar">
                   <div class="hud-bar-segment">
-                    <span class="bar-lbl">VRAM</span>
-                    <div class="mini-progress">
-                      <div class="bar-fill cyan-fill" id="hudVramBar" style="width: 25%"></div>
+                    <div class="hud-bar-meta">
+                      <span class="bar-lbl cyan">VRAM</span>
+                      <span class="bar-val" id="hudVramVal">-- GB (0%)</span>
                     </div>
-                    <span class="bar-val" id="hudVramVal">25%</span>
+                    <div class="mini-progress">
+                      <div class="bar-fill cyan-fill" id="hudVramBar" style="width: 0%"></div>
+                    </div>
                   </div>
+
                   <div class="hud-bar-segment">
-                    <span class="bar-lbl">RAM</span>
-                    <div class="mini-progress">
-                      <div class="bar-fill purple-fill" id="hudRamBar" style="width: 70%"></div>
+                    <div class="hud-bar-meta">
+                      <span class="bar-lbl purple">RAM</span>
+                      <span class="bar-val" id="hudRamVal">-- GB (0%)</span>
                     </div>
-                    <span class="bar-val" id="hudRamVal">70%</span>
+                    <div class="mini-progress">
+                      <div class="bar-fill purple-fill" id="hudRamBar" style="width: 0%"></div>
+                    </div>
                   </div>
                 </div>
+
               </div>
 
               <!-- ======================================================== -->
@@ -588,40 +592,15 @@
             </div> <!-- /burn-in-wrapper -->
 
             <!-- Watch Touch Screen Overlay Hints -->
-            <div class="watch-touch-hint" id="touchHint">Tap face to cycle • Long-press theme • Double-tap full</div>
+            <div class="watch-touch-hint" id="touchHint" style="display:none;"></div>
           </div> <!-- /gw4-viewport -->
 
         </div> <!-- /watch-bezel-ring -->
       </div> <!-- /watch-case-bezel -->
 
-      <!-- Quick Action Floating Bar (Under watch simulator) -->
-      <div class="watch-stage-controls">
-        <button class="btn-action" id="btnFullscreen" title="Toggle Fullscreen">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-          </svg>
-          Fullscreen
-        </button>
-        <button class="btn-action" id="btnNextFace" title="Cycle Face">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-          Next Style
-        </button>
-        <button class="btn-action" id="btnPureWatch" title="Hide Desktop UI">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-          </svg>
-          Pure Watch Mode
-        </button>
-      </div>
-
     </main>
 
   </div> <!-- /companion-layout -->
-
-  <!-- Toast Notification -->
-  <div class="toast-popup" id="toast">URL copied to clipboard!</div>
 
   <!-- QR Code & Dashboard Scripts -->
   <script src="/static/js/app.js?v={{ build_id }}"></script>

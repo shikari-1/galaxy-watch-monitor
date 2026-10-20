@@ -997,90 +997,74 @@ input:checked + .slider:before {
 }
 
 /* ==========================================================================
-   WATCH FACE 2: DUAL ARC HUD (Speedometer Inspired)
+   WATCH FACE 2: DUAL ARC HUD (Focused 4-Metric AMOLED Layout)
+   Displays ONLY: GPU Temp, CPU Temp, GPU VRAM, System RAM
    ========================================================================== */
 
-.hud-top {
+#faceArc {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 380px;
+  height: 380px;
   position: absolute;
-  top: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 175px;
-  font-size: 11px;
-  z-index: 2;
+  inset: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: #000000;
 }
 
-.hud-host {
-  color: var(--gpu-cyan);
-  font-family: var(--font-hud);
-  font-weight: 700;
-  font-size: 10px;
-  letter-spacing: 0.8px;
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+#faceArc.active {
+  display: flex !important;
 }
 
-.hud-clock-group {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.hud-net {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-align: right;
-  white-space: nowrap;
-}
-
+/* Dual Speedometer Gauge Arcs */
 .hud-gauges-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 16px;
+  margin-top: -32px;
   z-index: 2;
 }
 
 .hud-gauge-box {
   position: relative;
-  width: 112px;
-  height: 112px;
+  width: 140px;
+  height: 140px;
 }
 
 .hud-arc-svg {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
 .arc-bg {
   fill: none;
   stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 10;
+  stroke-width: 12;
   stroke-linecap: round;
 }
 
 .arc-fg {
   fill: none;
-  stroke-width: 10;
+  stroke-width: 12;
   stroke-linecap: round;
   stroke-dasharray: 280 280;
   stroke-dashoffset: 280;
-  transition: stroke-dashoffset 0.8s ease;
+  transition: stroke-dashoffset 0.6s ease, stroke 0.4s ease;
 }
 
 .arc-cyan {
-  stroke: var(--gpu-cyan);
-  filter: drop-shadow(0 0 6px var(--gpu-glow));
+  stroke: var(--gpu-cyan, #00f3ff);
+  filter: drop-shadow(0 0 8px rgba(0, 243, 255, 0.4));
 }
 
 .arc-coral {
-  stroke: var(--cpu-coral);
-  filter: drop-shadow(0 0 6px var(--cpu-glow));
+  stroke: var(--cpu-coral, #ff3366);
+  filter: drop-shadow(0 0 8px rgba(255, 51, 102, 0.4));
 }
 
 .hud-arc-center {
@@ -1090,77 +1074,119 @@ input:checked + .slider:before {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 6px;
+  padding-bottom: 2px;
 }
 
 .hud-tag {
-  font-family: var(--font-hud);
-  font-size: 9px;
+  font-family: var(--font-hud, 'Chakra Petch', sans-serif);
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
-.hud-tag.cyan { color: var(--gpu-cyan); }
-.hud-tag.coral { color: var(--cpu-coral); }
+.hud-tag.cyan {
+  color: var(--gpu-cyan, #00f3ff);
+  text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+}
+
+.hud-tag.coral {
+  color: var(--cpu-coral, #ff3366);
+  text-shadow: 0 0 8px rgba(255, 51, 102, 0.5);
+}
+
+.hud-temp-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
 
 .hud-temp {
-  font-family: var(--font-hud);
-  font-size: 22px;
+  font-family: var(--font-hud, 'Chakra Petch', sans-serif);
+  font-size: 34px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1;
   color: #ffffff;
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.25);
 }
 
-.hud-sub {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
+.hud-deg {
+  font-family: var(--font-hud, 'Chakra Petch', sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted, #8b92a5);
+  margin-left: 2px;
 }
 
+/* Bottom Memory Section */
 .hud-bottom-bar {
   position: absolute;
-  bottom: 46px;
+  bottom: 50px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  width: 160px;
+  gap: 10px;
+  width: 220px;
   z-index: 2;
 }
 
 .hud-bar-segment {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud-bar-meta {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  font-size: 9px;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
 }
 
 .bar-lbl {
-  color: var(--text-dim);
-  width: 32px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 11px;
+}
+
+.bar-lbl.cyan {
+  color: var(--gpu-cyan, #00f3ff);
+}
+
+.bar-lbl.purple {
+  color: var(--ram-purple, #a855f7);
+}
+
+.bar-val {
+  color: #d1d5db;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .mini-progress {
-  flex: 1;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
+  width: 100%;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 999px;
   transition: width 0.6s ease;
 }
 
-.cyan-fill { background: var(--gpu-cyan); }
-.purple-fill { background: var(--ram-purple); }
+.cyan-fill {
+  background: linear-gradient(90deg, #0066ff, #00f3ff);
+  box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+}
 
-.bar-val {
-  color: var(--text-muted);
-  width: 28px;
-  text-align: right;
+.purple-fill {
+  background: linear-gradient(90deg, #7928ca, #c77dff);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
 }
 
 /* ==========================================================================
@@ -1650,23 +1676,7 @@ input:checked + .slider:before {
 
 /* Toast */
 .toast-popup {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  background: var(--gpu-cyan);
-  color: #000000;
-  padding: 10px 20px;
-  border-radius: 30px;
-  font-weight: 700;
-  font-size: 13px;
-  box-shadow: 0 8px 24px rgba(0, 243, 255, 0.4);
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  z-index: 999;
-}
-
-.toast-popup.show {
-  transform: translateX(-50%) translateY(0);
+  display: none !important;
 }
 
 /* ==========================================================================
@@ -1736,29 +1746,33 @@ body.pure-watch-mode .gw4-viewport {
 }
 
 /* Mobile / Smartwatch Responsive Auto-Switch */
-@media (max-width: 500px), (max-height: 500px) {
-  body {
+@media (max-width: 768px), (max-height: 768px) {
+  html, body {
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #000000 !important;
   }
-  .desktop-sidebar {
-    display: none !important;
-  }
-  .watch-stage-controls {
-    display: none !important;
-  }
-  .watch-top-button, .watch-bottom-button {
+  .companion-sidebar,
+  .watch-stage-controls,
+  .watch-touch-hint,
+  .watch-top-button,
+  .watch-bottom-button,
+  .watch-bezel-markers {
     display: none !important;
   }
   .companion-layout {
-    background: var(--bg-pure-black) !important;
+    background: #000000 !important;
     width: 100vw !important;
     height: 100vh !important;
     overflow: hidden !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .watch-stage {
     padding: 0 !important;
@@ -1769,6 +1783,7 @@ body.pure-watch-mode .gw4-viewport {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    background: #000000 !important;
   }
   .watch-case-bezel, .watch-bezel-ring {
     background: transparent !important;
@@ -1784,11 +1799,14 @@ body.pure-watch-mode .gw4-viewport {
   .gw4-viewport {
     width: 100vmin !important;
     height: 100vmin !important;
+    max-width: 450px !important;
+    max-height: 450px !important;
     border-radius: 50% !important;
     overflow: hidden !important;
     position: relative !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    background: #000000 !important;
   }
 }
