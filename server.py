@@ -60,7 +60,9 @@ hardware_state = {
     "host": {
         "name": socket.gethostname(),
         "local_ip": "127.0.0.1",
-        "port": 8080
+        "port": 8080,
+        "last_client_ip": None,
+        "last_client_time": None
     }
 }
 
@@ -260,13 +262,35 @@ def hardware_monitor_worker():
         time.sleep(1.0)
 
 # Routes
+@app.before_request
+def track_client():
+    client_ip = request.remote_addr
+    # Record remote client IP (e.g. Galaxy Watch 4)
+    if client_ip and client_ip not in ("127.0.0.1", "::1", "localhost"):
+        with state_lock:
+            hardware_state["host"]["last_client_ip"] = client_ip
+            hardware_state["host"]["last_client_time"] = time.time()
+
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 @app.route("/")
 def index():
     """Serves the main hardware dashboard."""
     with state_lock:
         ip = hardware_state["host"]["local_ip"]
         port = hardware_state["host"]["port"]
-    return render_template("index.html", local_ip=ip, port=port, hostname=socket.gethostname())
+    return render_template(
+        "index.html",
+        local_ip=ip,
+        port=port,
+        hostname=socket.gethostname(),
+        build_id=int(time.time())
+    )
 
 @app.route("/api/stats")
 def get_stats():
@@ -326,6 +350,21 @@ def print_banner(ip, port, hostname):
     print(banner)
 
 def start_server(port=8080):
+    # Pre-flight check: ensure port is not already occupied by a duplicate process
+    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    test_sock.settimeout(0.5)
+    is_bound = test_sock.connect_ex(("127.0.0.1", port)) == 0
+    test_sock.close()
+    if is_bound:
+        logger.error(f"[ERROR] Port {port} is ALREADY IN USE by another process.")
+        logger.error("Please terminate the existing process before starting a new server.")
+        sys.exit(1)
+
+    # Disable socket reuse on Windows so multiple processes cannot bind to the same port
+    if os.name == "nt":
+        import socketserver
+        socketserver.TCPServer.allow_reuse_address = False
+
     hardware_state["host"]["port"] = port
     ip = get_active_lan_ip()
     hostname = socket.gethostname()

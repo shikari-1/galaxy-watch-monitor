@@ -177,17 +177,50 @@
   });
 
   /**
-   * OLED Anti-Burn-In Pixel Shifting Routine
-   * Subtly moves layout coordinates every 90 seconds
+   * OLED Anti-Burn-In Pixel Shifting Routine & Scale preservation
+   * Subtly moves layout coordinates every 90 seconds while preserving scale
    */
   function applyBurnInShift() {
-    if (!burnInEnabled || !elements.burnInWrapper) return;
-    burnInStep = (burnInStep + 1) % BURN_IN_OFFSETS.length;
-    const offset = BURN_IN_OFFSETS[burnInStep];
-    elements.burnInWrapper.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+    if (!elements.burnInWrapper) return;
+    const offset = burnInEnabled ? BURN_IN_OFFSETS[burnInStep] : { x: 0, y: 0 };
+    const scale = getComputedStyle(document.documentElement).getPropertyValue('--gw4-scale') || 1;
+    elements.burnInWrapper.style.transform = `scale(${scale}) translate(${offset.x}px, ${offset.y}px)`;
   }
 
-  setInterval(applyBurnInShift, 90000); // Every 90 seconds
+  function advanceBurnInStep() {
+    if (!burnInEnabled) return;
+    burnInStep = (burnInStep + 1) % BURN_IN_OFFSETS.length;
+    applyBurnInShift();
+  }
+
+  setInterval(advanceBurnInStep, 90000); // Every 90 seconds
+
+  /**
+   * Universal Viewport Auto-Scaler for Smartwatches
+   * Ensures the 380px circular telemetry canvas fits 100% inside any watch screen
+   * (e.g. 200px, 240px, 280px, 320px, 396px, 450px) without ever overflowing.
+   */
+  function updateViewportScale() {
+    if (!elements.gw4Viewport) return;
+
+    const screenDim = Math.min(window.innerWidth, window.innerHeight);
+    const isWatch = document.body.classList.contains('pure-watch-mode') || window.innerWidth <= 500;
+    
+    let scale = 1;
+    if (isWatch && screenDim > 0) {
+      // 93% of the watch screen dimension provides a safe margin from the circular AMOLED bezel
+      const safeDiameter = screenDim * 0.93;
+      scale = Math.min(1.2, safeDiameter / 380);
+    } else {
+      scale = 1;
+    }
+
+    document.documentElement.style.setProperty('--gw4-scale', scale.toFixed(3));
+    applyBurnInShift();
+  }
+
+  window.addEventListener('resize', updateViewportScale);
+  window.addEventListener('orientationchange', updateViewportScale);
 
   /**
    * Switch Active Watch Face
@@ -773,9 +806,7 @@
     if (elements.burnInToggle) {
       elements.burnInToggle.addEventListener('change', (e) => {
         burnInEnabled = e.target.checked;
-        if (!burnInEnabled && elements.burnInWrapper) {
-          elements.burnInWrapper.style.transform = 'translate(0px, 0px)';
-        }
+        applyBurnInShift();
       });
     }
 
@@ -792,6 +823,13 @@
    * Initialization
    */
   function init() {
+    // Auto pure-watch mode on small wearable screens
+    if (window.innerWidth <= 500 || window.innerHeight <= 500) {
+      document.body.classList.add('pure-watch-mode');
+    }
+
+    updateViewportScale();
+
     // Apply saved or default theme
     setTheme(currentTheme, false);
 
@@ -811,11 +849,6 @@
     setupListeners();
     requestWakeLock();
     startStream();
-
-    // Auto pure-watch mode on small wearable screens
-    if (window.innerWidth <= 480 || window.innerHeight <= 480) {
-      document.body.classList.add('pure-watch-mode');
-    }
   }
 
   // Run on DOM ready

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v={{ build_id }}">
   <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
 </head>
 <body class="desktop-mode">
@@ -624,6 +624,6 @@
   <div class="toast-popup" id="toast">URL copied to clipboard!</div>
 
   <!-- QR Code & Dashboard Scripts -->
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v={{ build_id }}"></script>
 </body>
 </html>

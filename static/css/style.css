@@ -708,6 +708,9 @@ input:checked + .slider:before {
   overflow: hidden;
   position: relative;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   /* Anti-aliasing for circular clip */
   mask-image: radial-gradient(circle, white 99.5%, transparent 100%);
   -webkit-mask-image: radial-gradient(circle, white 99.5%, transparent 100%);
@@ -715,24 +718,30 @@ input:checked + .slider:before {
 
 /* Anti-Burn-in Orbit Shifter Container */
 .burn-in-wrapper {
-  width: 100%;
-  height: 100%;
+  width: 380px;
+  height: 380px;
   position: relative;
-  transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 0.4s ease;
 }
 
 /* Generic Watch Face Base */
 .watch-face {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 380px;
+  height: 380px;
   display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  padding: 16px;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .watch-face.active {
@@ -993,11 +1002,11 @@ input:checked + .slider:before {
 
 .hud-top {
   position: absolute;
-  top: 38px;
+  top: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 195px;
+  width: 175px;
   font-size: 11px;
   z-index: 2;
 }
@@ -1008,7 +1017,7 @@ input:checked + .slider:before {
   font-weight: 700;
   font-size: 10px;
   letter-spacing: 0.8px;
-  max-width: 65px;
+  max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1017,7 +1026,7 @@ input:checked + .slider:before {
 .hud-clock-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .hud-net {
@@ -1039,8 +1048,8 @@ input:checked + .slider:before {
 
 .hud-gauge-box {
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 112px;
+  height: 112px;
 }
 
 .hud-arc-svg {
@@ -1081,7 +1090,7 @@ input:checked + .slider:before {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .hud-tag {
@@ -1096,7 +1105,7 @@ input:checked + .slider:before {
 
 .hud-temp {
   font-family: var(--font-hud);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.1;
   color: #ffffff;
@@ -1110,11 +1119,11 @@ input:checked + .slider:before {
 
 .hud-bottom-bar {
   position: absolute;
-  bottom: 44px;
+  bottom: 46px;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  width: 176px;
+  width: 160px;
   z-index: 2;
 }
 
@@ -1662,12 +1671,14 @@ input:checked + .slider:before {
 
 /* ==========================================================================
    PURE WATCH MODE / NATIVE WATCH WEAR OS SCREEN
-   Activated automatically on watch screens (<480px) or via toggle
+   Activated automatically on watch screens (<500px) or via toggle
    ========================================================================== */
 
 body.pure-watch-mode {
   background-color: var(--bg-pure-black);
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 body.pure-watch-mode .desktop-sidebar,
@@ -1681,37 +1692,56 @@ body.pure-watch-mode .companion-layout {
   background: var(--bg-pure-black);
   height: 100vh;
   width: 100vw;
+  margin: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 body.pure-watch-mode .watch-stage {
-  padding: 0;
-  width: 100vw;
-  height: 100vh;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
 }
 
 body.pure-watch-mode .watch-case-bezel,
 body.pure-watch-mode .watch-bezel-ring {
-  width: 100vw;
-  height: 100vw;
-  max-width: 100vh;
-  max-height: 100vh;
-  background: transparent;
-  border: none;
-  box-shadow: none;
+  width: 100vmin !important;
+  height: 100vmin !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
 }
 
 body.pure-watch-mode .gw4-viewport {
-  width: 100vw;
-  height: 100vw;
-  max-width: 100vh;
-  max-height: 100vh;
+  width: 100vmin !important;
+  height: 100vmin !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* Mobile / Smartwatch Responsive Auto-Switch */
 @media (max-width: 500px), (max-height: 500px) {
+  body {
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
   .desktop-sidebar {
     display: none !important;
   }
@@ -1721,24 +1751,44 @@ body.pure-watch-mode .gw4-viewport {
   .watch-top-button, .watch-bottom-button {
     display: none !important;
   }
+  .companion-layout {
+    background: var(--bg-pure-black) !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .watch-stage {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
   .watch-case-bezel, .watch-bezel-ring {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    width: 100vw !important;
-    height: 100vw !important;
-    max-width: 100vh !important;
-    max-height: 100vh !important;
-  }
-  .watch-stage {
-    padding: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
+    width: 100vmin !important;
+    height: 100vmin !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
   .gw4-viewport {
-    width: 100vw !important;
-    height: 100vw !important;
-    max-width: 100vh !important;
-    max-height: 100vh !important;
+    width: 100vmin !important;
+    height: 100vmin !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 }
