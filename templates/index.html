@@ -18,6 +18,10 @@
   
   <link rel="stylesheet" href="/static/css/style.css?v={{ build_id }}">
   <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+  <style>
+    #hudGpuArc { stroke: #ffffff; stroke: url(#hudMeterGrad); }
+    #hudCpuArc { stroke: #ffffff; stroke: url(#hudMeterGradCpu); }
+  </style>
 </head>
 <body>
   
@@ -347,11 +351,21 @@
                   <!-- GPU Speedometer Arc (Temperature) -->
                   <div class="hud-gauge-box">
                     <svg class="hud-arc-svg" viewBox="0 0 160 160">
+                      <defs>
+                        <linearGradient id="hudMeterGrad" gradientUnits="userSpaceOnUse" x1="20" y1="135" x2="140" y2="135">
+                          <stop offset="0%" stop-color="#ffffff" />
+                          <stop offset="55%" stop-color="#ffffff" />
+                          <stop offset="70%" stop-color="#ffb020" />
+                          <stop offset="82%" stop-color="#ff5500" />
+                          <stop offset="90%" stop-color="#ff0022" />
+                          <stop offset="100%" stop-color="#ff0022" />
+                        </linearGradient>
+                      </defs>
                       <path class="arc-bg" d="M 20 135 A 72 72 0 1 1 140 135" />
-                      <path id="hudGpuArc" class="arc-fg arc-cyan" d="M 20 135 A 72 72 0 1 1 140 135" />
+                      <path id="hudGpuArc" class="arc-fg" stroke="url(#hudMeterGrad)" d="M 20 135 A 72 72 0 1 1 140 135" />
                     </svg>
                     <div class="hud-arc-center">
-                      <span class="hud-tag cyan">GPU</span>
+                      <span class="hud-tag">GPU</span>
                       <div class="hud-temp-wrap">
                         <span class="hud-temp" id="hudGpuTemp">--</span>
                         <span class="hud-deg">°</span>
@@ -362,11 +376,21 @@
                   <!-- CPU Speedometer Arc (Temperature) -->
                   <div class="hud-gauge-box">
                     <svg class="hud-arc-svg" viewBox="0 0 160 160">
+                      <defs>
+                        <linearGradient id="hudMeterGradCpu" gradientUnits="userSpaceOnUse" x1="20" y1="135" x2="140" y2="135">
+                          <stop offset="0%" stop-color="#ffffff" />
+                          <stop offset="55%" stop-color="#ffffff" />
+                          <stop offset="70%" stop-color="#ffb020" />
+                          <stop offset="82%" stop-color="#ff5500" />
+                          <stop offset="90%" stop-color="#ff0022" />
+                          <stop offset="100%" stop-color="#ff0022" />
+                        </linearGradient>
+                      </defs>
                       <path class="arc-bg" d="M 20 135 A 72 72 0 1 1 140 135" />
-                      <path id="hudCpuArc" class="arc-fg arc-coral" d="M 20 135 A 72 72 0 1 1 140 135" />
+                      <path id="hudCpuArc" class="arc-fg" stroke="url(#hudMeterGradCpu)" d="M 20 135 A 72 72 0 1 1 140 135" />
                     </svg>
                     <div class="hud-arc-center">
-                      <span class="hud-tag coral">CPU</span>
+                      <span class="hud-tag">CPU</span>
                       <div class="hud-temp-wrap">
                         <span class="hud-temp" id="hudCpuTemp">--</span>
                         <span class="hud-deg">°</span>
@@ -379,21 +403,21 @@
                 <div class="hud-bottom-bar">
                   <div class="hud-bar-segment">
                     <div class="hud-bar-meta">
-                      <span class="bar-lbl cyan">VRAM</span>
+                      <span class="bar-lbl">VRAM</span>
                       <span class="bar-val" id="hudVramVal">-- GB (0%)</span>
                     </div>
                     <div class="mini-progress">
-                      <div class="bar-fill cyan-fill" id="hudVramBar" style="width: 0%"></div>
+                      <div class="bar-fill" id="hudVramBar" style="width: 0%"></div>
                     </div>
                   </div>
 
                   <div class="hud-bar-segment">
                     <div class="hud-bar-meta">
-                      <span class="bar-lbl purple">RAM</span>
+                      <span class="bar-lbl">RAM</span>
                       <span class="bar-val" id="hudRamVal">-- GB (0%)</span>
                     </div>
                     <div class="mini-progress">
-                      <div class="bar-fill purple-fill" id="hudRamBar" style="width: 0%"></div>
+                      <div class="bar-fill" id="hudRamBar" style="width: 0%"></div>
                     </div>
                   </div>
                 </div>

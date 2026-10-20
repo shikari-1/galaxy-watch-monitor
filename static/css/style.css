@@ -1021,12 +1021,16 @@ input:checked + .slider:before {
 
 /* Dual Speedometer Gauge Arcs */
 .hud-gauges-container {
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: -54px;
   z-index: 2;
+  width: 368px;
 }
 
 .hud-gauge-box {
@@ -1050,18 +1054,11 @@ input:checked + .slider:before {
 
 .arc-fg {
   fill: none;
+  stroke: #ffffff;
   stroke-width: 13;
   stroke-linecap: round;
   stroke-dasharray: 315 315;
   stroke-dashoffset: 315;
-}
-
-.arc-cyan {
-  stroke: var(--gpu-cyan, #00f3ff);
-}
-
-.arc-coral {
-  stroke: var(--cpu-coral, #ff3366);
 }
 
 .hud-arc-center {
@@ -1076,19 +1073,12 @@ input:checked + .slider:before {
 
 .hud-tag {
   font-family: var(--font-hud, 'Chakra Petch', sans-serif);
-  font-size: 15px;
+  font-size: 21px;
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
+  color: #ffffff;
   margin-bottom: 2px;
-}
-
-.hud-tag.cyan {
-  color: var(--gpu-cyan, #00f3ff);
-}
-
-.hud-tag.coral {
-  color: var(--cpu-coral, #ff3366);
 }
 
 .hud-temp-wrap {
@@ -1137,26 +1127,21 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-mono, monospace);
-  font-size: 14px;
+  font-size: 17px;
 }
 
 .bar-lbl {
+  font-family: var(--font-hud, 'Chakra Petch', sans-serif);
+  font-size: 21px;
   font-weight: 700;
-  letter-spacing: 1px;
-  font-size: 14px;
-}
-
-.bar-lbl.cyan {
-  color: var(--gpu-cyan, #00f3ff);
-}
-
-.bar-lbl.purple {
-  color: var(--ram-purple, #a855f7);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ffffff;
 }
 
 .bar-val {
-  color: #d1d5db;
-  font-size: 13.5px;
+  color: #e5e7eb;
+  font-size: 17px;
   font-weight: 600;
 }
 
@@ -1171,14 +1156,16 @@ input:checked + .slider:before {
 .bar-fill {
   height: 100%;
   border-radius: 999px;
+  background: linear-gradient(90deg, #ffffff 0%, #ffffff 55%, #ffb020 70%, #ff5500 82%, #ff0022 90%, #ff0022 100%) no-repeat left center;
+  background-size: 275px 100%;
 }
 
-.cyan-fill {
-  background: linear-gradient(90deg, #0066ff, #00f3ff);
+.bar-fill.crit-fill {
+  background: #ff0022 !important;
 }
 
-.purple-fill {
-  background: linear-gradient(90deg, #7928ca, #c77dff);
+.crit-text {
+  color: #ff0022 !important;
 }
 
 /* ==========================================================================

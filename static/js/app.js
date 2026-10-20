@@ -484,7 +484,7 @@
 
     const ramPct = Math.round(ram.percent || 0);
     const ramUsedGb = (ram.used_gb || 0).toFixed(1);
-    const ramTotalGb = (ram.total_gb || 16).toFixed(0);
+    const ramTotalGb = (ram.total_gb || 16).toFixed(1);
 
     // Pulse live dot
     if (elements.liveDot) {
@@ -523,44 +523,67 @@
       elements.cyberRamArc.style.strokeDashoffset = ramOffset;
     }
 
+    // Progressive color resolver: white (0-67%), warm amber (68-79%), orange (80-89%), bright red (90%+)
+    function getMetricColor(pct, defaultCol = '') {
+      if (pct >= 90) return '#ff0022';
+      if (pct >= 80) return '#ff5500';
+      if (pct >= 68) return '#ffb020';
+      return defaultCol;
+    }
+
     // --- FACE 2: DUAL ARC HUD (Clean 4-Metric Focused) ---
     if (elements.hudGpuTemp) elements.hudGpuTemp.textContent = gpuTemp;
     if (elements.hudCpuTemp) elements.hudCpuTemp.textContent = cpuTemp;
 
-    // Dual Speedometer arcs track Temperature (0 - 100°C) with exact path length ~310
-    const gpuTempPct = Math.min(100, Math.max(0, gpuTemp));
-    const cpuTempPct = Math.min(100, Math.max(0, cpuTemp));
+    // Dual Speedometer arcs: 0°C -> 0%, 90°C -> 100% full. Post 90°C till 100°C stays 100% full and red.
+    const gpuTempPct = Math.min(100, Math.max(0, (gpuTemp / 90) * 100));
+    const cpuTempPct = Math.min(100, Math.max(0, (cpuTemp / 90) * 100));
     setPathProgress(elements.hudGpuArc, gpuTempPct, 310);
     setPathProgress(elements.hudCpuArc, cpuTempPct, 310);
 
-    // Dynamic thermal alert coloring on gauges
+    // Arcs turn bright red once above 90% (81°C+ / 90°C+)
     if (elements.hudGpuArc) {
-      if (gpuTemp >= critThreshold) {
-        elements.hudGpuArc.style.stroke = 'var(--crit-color, #ff0044)';
-      } else if (gpuTemp >= warnThreshold) {
-        elements.hudGpuArc.style.stroke = 'var(--warn-color, #ffaa00)';
-      } else {
-        elements.hudGpuArc.style.stroke = '';
-      }
+      elements.hudGpuArc.style.stroke = (gpuTempPct >= 90) ? '#ff0022' : '';
     }
-    if (elements.hudCpuArc) {
-      if (cpuTemp >= critThreshold) {
-        elements.hudCpuArc.style.stroke = 'var(--crit-color, #ff0044)';
-      } else if (cpuTemp >= warnThreshold) {
-        elements.hudCpuArc.style.stroke = 'var(--warn-color, #ffaa00)';
-      } else {
-        elements.hudCpuArc.style.stroke = '';
-      }
+    if (elements.hudGpuTemp) {
+      elements.hudGpuTemp.style.color = getMetricColor(gpuTempPct, '#ffffff');
     }
 
-    // Memory formatted with GB and percentage
+    if (elements.hudCpuArc) {
+      elements.hudCpuArc.style.stroke = (cpuTempPct >= 90) ? '#ff0022' : '';
+    }
+    if (elements.hudCpuTemp) {
+      elements.hudCpuTemp.style.color = getMetricColor(cpuTempPct, '#ffffff');
+    }
+
+    // Memory formatted with full GB decimal precision and percentage
     const vramUsedGb = (gpu.vram_used_mb / 1024).toFixed(1);
     const vramTotalGb = (gpu.vram_total_mb / 1024).toFixed(1);
-    if (elements.hudVramBar) elements.hudVramBar.style.width = `${gpuVramPct}%`;
-    if (elements.hudVramVal) elements.hudVramVal.textContent = `${vramUsedGb} / ${vramTotalGb}G (${gpuVramPct}%)`;
+    if (elements.hudVramBar) {
+      elements.hudVramBar.style.width = `${gpuVramPct}%`;
+      if (gpuVramPct >= 90) {
+        elements.hudVramBar.classList.add('crit-fill');
+      } else {
+        elements.hudVramBar.classList.remove('crit-fill');
+      }
+    }
+    if (elements.hudVramVal) {
+      elements.hudVramVal.textContent = `${vramUsedGb} / ${vramTotalGb}G (${gpuVramPct}%)`;
+      elements.hudVramVal.style.color = getMetricColor(gpuVramPct, '#e5e7eb');
+    }
 
-    if (elements.hudRamBar) elements.hudRamBar.style.width = `${ramPct}%`;
-    if (elements.hudRamVal) elements.hudRamVal.textContent = `${ramUsedGb} / ${ramTotalGb}G (${ramPct}%)`;
+    if (elements.hudRamBar) {
+      elements.hudRamBar.style.width = `${ramPct}%`;
+      if (ramPct >= 90) {
+        elements.hudRamBar.classList.add('crit-fill');
+      } else {
+        elements.hudRamBar.classList.remove('crit-fill');
+      }
+    }
+    if (elements.hudRamVal) {
+      elements.hudRamVal.textContent = `${ramUsedGb} / ${ramTotalGb}G (${ramPct}%)`;
+      elements.hudRamVal.style.color = getMetricColor(ramPct, '#e5e7eb');
+    }
 
     // --- FACE 3: MINIMAL OLED ---
     if (elements.minGpuTemp) elements.minGpuTemp.textContent = gpuTemp;
