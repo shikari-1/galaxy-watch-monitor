@@ -211,12 +211,18 @@ def launch_on_watch(adb_cmd, pc_ip, port=8080):
     ])
 
     if code == 0:
-        # Brief pause then simulate a tap to trigger instant fullscreen mode
+        # Step 1: Brief pause, then simulate tap to trigger instant fullscreen mode
+        print("[*] Activating fullscreen mode...")
         time.sleep(1.2)
         run_adb(adb_cmd, ["shell", "input", "tap", "225", "225"])
 
+        # Step 2: Wait exactly 2 seconds, then tap again to dismiss Chrome's fullscreen warning banner
+        print("[*] Waiting 2s to auto-dismiss Chrome fullscreen exit notice...")
+        time.sleep(2.0)
+        run_adb(adb_cmd, ["shell", "input", "tap", "225", "225"])
+
         print("\n" + "=" * 64)
-        print(f" [SUCCESS] Hardware Monitor refreshed on Galaxy Watch 4!")
+        print(f" [SUCCESS] Hardware Monitor live in fullscreen on Galaxy Watch 4!")
         print(f" Target URL : {url}")
         print("=" * 64)
         return True
