@@ -1,4 +1,4 @@
-# ⌚ Galaxy Watch 4 — Desktop Hardware Monitor
+# Galaxy Watch 4 - Desktop Hardware Monitor
 
 Turn your **Samsung Galaxy Watch 4** (or any Wear OS watch like GW5, GW6, GW7, Pixel Watch) into a futuristic mini desktop hardware monitor resting on your desk or inside your PC case.
 
@@ -6,24 +6,24 @@ Displays real-time **CPU & GPU temperatures, utilization %, clocks, VRAM, RAM, a
 
 ---
 
-## ✨ Features
+## Features
 
 - **Designed for Circular Wear OS Screens**: Optimized for 396×396 (40mm) and 450×450 (44mm/Classic) displays.
 - **Pure AMOLED Black (`#000000`)**: Inactive pixels are completely powered off, keeping the watch cool on its magnetic charger and conserving battery.
-- **🛡️ Built-in OLED Burn-In Protection**: Subtle 8-point orbital pixel shifting every 90 seconds prevents static image retention without being noticeable.
+- **Built-in OLED Burn-In Protection**: Subtle 8-point orbital pixel shifting every 90 seconds prevents static image retention without being noticeable.
 - **5 Switchable Watch Face Styles**:
   1. **Cyber Ring (Default)**: Dual circular neon arcs with clock, power, and RAM indicators.
   2. **Dual Arc HUD**: Speedometer-style dual arc gauges inspired by automotive telemetry.
   3. **Minimal OLED**: Ultra-clean, high-contrast digital display for maximum efficiency.
   4. **Stat Grid**: Dense 4-quadrant telemetry dashboard.
   5. **Chrono Cockpit**: 60-tick tachometer racing face with live GPU Fan RPM %, GPU Clock MHz, and cockpit gauge arcs.
-- **🎨 5 Curated AMOLED Color Accent Themes**:
+- **5 Curated AMOLED Color Accent Themes**:
   - **Cyberpunk Neon**: Electric Cyan & Coral Crimson.
   - **Toxic Matrix**: Emerald Green & Acid Lime.
   - **Solar Flare**: Amber Gold & Sunset Crimson.
   - **Synthwave Outrun**: Hot Neon Pink & Electric Violet.
   - **Stealth Ice**: Crisp Pure White & Arctic Ice Blue.
-- **🔥 Dynamic Thermal Alert Thresholds**:
+- **Dynamic Thermal Alert Thresholds**:
   - Real-time thermal detection for both NVIDIA GPU & CPU.
   - Configurable Warning (`75°C` Amber Glow) and Critical Overheat (`83°C` Pulsing Crimson & Animated Flame Badge).
   - Configurable via companion sidebar sliders and saved in `localStorage`.
@@ -41,7 +41,7 @@ Displays real-time **CPU & GPU temperatures, utilization %, clocks, VRAM, RAM, a
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Run on Your PC
 Make sure Python 3.9+ is installed.
@@ -74,7 +74,7 @@ The terminal will print your active LAN IP address:
 
 ---
 
-## ⌚ Setting Up Your Galaxy Watch 4
+## Setting Up Your Galaxy Watch 4
 
 ### Step 1: Connect to Wi-Fi
 Ensure your Galaxy Watch 4 is connected to the **same Wi-Fi network** as your PC.
@@ -91,7 +91,7 @@ Ensure your Galaxy Watch 4 is connected to the **same Wi-Fi network** as your PC
 
 ---
 
-## ⚡ Crucial Desk Display Settings
+## Crucial Desk Display Settings
 
 To keep your watch display active 24/7 without turning off while resting on the desk charger:
 
@@ -107,7 +107,7 @@ To keep your watch display active 24/7 without turning off while resting on the 
 
 ---
 
-## 🛠️ Pushing to GitHub
+## Pushing to GitHub
 
 To publish this project to your GitHub account:
 
@@ -133,5 +133,5 @@ git push -u origin main
 
 ---
 
-## 📄 License
+## License
 MIT License. Free to use, modify, and distribute.
