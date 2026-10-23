@@ -278,7 +278,7 @@
                 <!-- On-Screen Telemetry Elements -->
                 <div class="cyber-header">
                   <span class="pulse-indicator" id="liveDot" title="Live telemetry pulse"></span>
-                  <span class="digital-clock" id="cyberClock">12:00</span>
+                  <span class="digital-clock breathing-clock" id="cyberClock">12:00</span>
                   <span class="fps-badge" id="cyberFreq">3.8G</span>
                   <span class="thermal-warning-badge" id="cyberThermalBadge">🔥 HOT</span>
                 </div>
@@ -346,6 +346,11 @@
               <!-- ======================================================== -->
               <div class="watch-face active" id="faceArc">
                 
+                <!-- Top Breathing 24-Hour Digital Clock -->
+                <div class="hud-top-clock">
+                  <span class="breathing-clock" id="hudClock">--:--</span>
+                </div>
+
                 <!-- Central Dual Temperature Gauges (GPU & CPU) -->
                 <div class="hud-gauges-container">
                   <!-- GPU Speedometer Arc (Temperature) -->
@@ -429,7 +434,7 @@
               <!-- ======================================================== -->
               <div class="watch-face" id="faceMinimal">
                 <div class="minimal-wrapper">
-                  <div class="minimal-time" id="minClock">12:00</div>
+                  <div class="minimal-time breathing-clock" id="minClock">12:00</div>
                   
                   <div class="minimal-duo">
                     <div class="min-side">
@@ -499,7 +504,7 @@
                       <span>PWR</span>
                       <strong id="gridPwr">16W</strong>
                     </div>
-                    <div class="grid-big-val" id="gridClockMini">12:00</div>
+                    <div class="grid-big-val breathing-clock" id="gridClockMini">12:00</div>
                     <div class="grid-sub" id="gridNet">0 KB/s</div>
                   </div>
                 </div>
@@ -547,7 +552,7 @@
                   <!-- Top Time & RPM badge -->
                   <div class="chrono-header">
                     <span class="chrono-badge">COCKPIT</span>
-                    <span class="digital-clock chrono-clock" id="chronoClock">12:00</span>
+                    <span class="digital-clock chrono-clock breathing-clock" id="chronoClock">12:00</span>
                     <span class="chrono-badge" id="chronoGpuFan">FAN 45%</span>
                   </div>
 

@@ -13,7 +13,7 @@
   const faceButtons = document.querySelectorAll('.theme-btn');
   let eventSource = null;
   let pollIntervalTimer = null;
-  let updateIntervalMs = 1500;
+  let updateIntervalMs = 1000;
   let wakeLock = null;
   let lastTapTime = 0;
   let burnInEnabled = true;
@@ -441,20 +441,86 @@
     });
   }
 
+  // Telemetry Liveness & IST Timezone tracking
+  let serverTimeOffsetMs = 0;
+  let lastTelemetryReceivedTime = 0;
+  const STALE_TIMEOUT_MS = 2500; // 2.5 seconds without update from server = stale/offline
+
+  // Formatter for IST (Asia/Kolkata - 24-hour HH:mm)
+  let istFormatter = null;
+  try {
+    istFormatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  } catch (e) {
+    console.warn('Intl Asia/Kolkata not supported, falling back to manual offset calculation');
+  }
+
+  function getIstTime() {
+    // Sync with server epoch if available
+    const targetEpoch = Date.now() + serverTimeOffsetMs;
+    const targetDate = new Date(targetEpoch);
+
+    if (istFormatter) {
+      return istFormatter.format(targetDate);
+    }
+
+    // Manual fallback for IST (UTC + 5 hours 30 mins)
+    const utcMs = targetDate.getTime() + (targetDate.getTimezoneOffset() * 60000);
+    const istDate = new Date(utcMs + (5.5 * 3600000));
+    const hours = String(istDate.getHours()).padStart(2, '0');
+    const minutes = String(istDate.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
   /**
-   * Update Digital Clocks
+   * Monitor Telemetry Liveness:
+   * If updates from server stop for more than 2.5s, pause breathing on the clock.
+   */
+  function checkTelemetryLiveness() {
+    const isAlive = (lastTelemetryReceivedTime > 0) && (Date.now() - lastTelemetryReceivedTime < STALE_TIMEOUT_MS);
+    
+    const clockEls = [
+      elements.hudClock,
+      elements.cyberClock,
+      elements.minClock,
+      elements.gridClockMini,
+      elements.chronoClock
+    ];
+
+    clockEls.forEach(el => {
+      if (el) {
+        if (isAlive) {
+          el.classList.remove('stale');
+        } else {
+          el.classList.add('stale');
+        }
+      }
+    });
+
+    if (elements.liveDot) {
+      elements.liveDot.style.opacity = isAlive ? '1' : '0.2';
+    }
+  }
+
+  setInterval(checkTelemetryLiveness, 500);
+
+  /**
+   * Update Digital Clocks in IST (24-Hour)
    */
   function updateClocks() {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const timeStr = `${hours}:${minutes}`;
+    const timeStr = getIstTime();
 
     if (elements.cyberClock) elements.cyberClock.textContent = timeStr;
     if (elements.hudClock) elements.hudClock.textContent = timeStr;
     if (elements.minClock) elements.minClock.textContent = timeStr;
     if (elements.gridClockMini) elements.gridClockMini.textContent = timeStr;
     if (elements.chronoClock) elements.chronoClock.textContent = timeStr;
+
+    checkTelemetryLiveness();
   }
 
   setInterval(updateClocks, 1000);
@@ -465,6 +531,12 @@
    */
   function updateTelemetry(data) {
     if (!data) return;
+
+    lastTelemetryReceivedTime = Date.now();
+    if (data.timestamp) {
+      serverTimeOffsetMs = (data.timestamp * 1000) - Date.now();
+    }
+    checkTelemetryLiveness();
 
     const cpu = data.cpu || {};
     const gpu = data.gpu || {};

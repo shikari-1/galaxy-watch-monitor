@@ -842,6 +842,58 @@ input:checked + .slider:before {
   color: #e0e5f2;
 }
 
+/* Breathing 24-Hour Digital Clock */
+@keyframes clockBreathe {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(0.97);
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+    text-shadow: 0 0 16px rgba(255, 255, 255, 0.8), 0 0 24px var(--gpu-glow, rgba(0, 243, 255, 0.45));
+  }
+}
+
+.breathing-clock {
+  display: inline-block;
+  font-family: var(--font-hud, 'Chakra Petch', sans-serif);
+  font-weight: 700;
+  letter-spacing: 2px;
+  animation: clockBreathe 3.5s ease-in-out infinite;
+  will-change: transform, opacity;
+  transition: opacity 0.5s ease, filter 0.5s ease;
+}
+
+/* Stops breathing immediately if server telemetry stops */
+.breathing-clock.stale {
+  animation: none !important;
+  opacity: 0.45 !important;
+  transform: scale(1) !important;
+  text-shadow: none !important;
+  filter: grayscale(1);
+}
+
+/* Dedicated Top Clock for Dual Arc HUD */
+.hud-top-clock {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.hud-top-clock .breathing-clock {
+  font-size: 20px;
+  color: #ffffff;
+  letter-spacing: 2.5px;
+}
+
 .fps-badge {
   font-family: var(--font-hud);
   font-size: 11px;
