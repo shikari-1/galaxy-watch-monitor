@@ -13,7 +13,7 @@
   const faceButtons = document.querySelectorAll('.theme-btn');
   let eventSource = null;
   let pollIntervalTimer = null;
-  let updateIntervalMs = 1000;
+  let updateIntervalMs = 1500;
   let wakeLock = null;
   let lastTapTime = 0;
   let burnInEnabled = true;
@@ -444,7 +444,7 @@
   // Telemetry Liveness & IST Timezone tracking
   let serverTimeOffsetMs = 0;
   let lastTelemetryReceivedTime = 0;
-  const STALE_TIMEOUT_MS = 2500; // 2.5 seconds without update from server = stale/offline
+  const STALE_TIMEOUT_MS = 3500; // 3.5 seconds without update from server = stale/offline
 
   // Formatter for IST (Asia/Kolkata - 24-hour HH:mm)
   let istFormatter = null;
