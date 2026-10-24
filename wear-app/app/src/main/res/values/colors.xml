@@ -1,0 +1,12 @@
+<resources>
+    <color name="amoled_black">#000000</color>
+    <color name="card_bg">#111216</color>
+    <color name="gpu_cyan">#00F3FF</color>
+    <color name="cpu_coral">#FF3366</color>
+    <color name="ram_purple">#A855F7</color>
+    <color name="warn_amber">#FFAA00</color>
+    <color name="crit_red">#FF0022</color>
+    <color name="text_white">#FFFFFF</color>
+    <color name="text_muted">#8B92A5</color>
+    <color name="track_bg">#1E2028</color>
+</resources>

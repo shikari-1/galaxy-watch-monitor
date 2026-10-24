@@ -32,3 +32,11 @@ desktop.ini
 *.apk
 *.aab
 tools/*.apk
+
+# Android & Gradle Build Artifacts
+.gradle/
+**/build/
+*.iml
+.cxx/
+local.properties
+

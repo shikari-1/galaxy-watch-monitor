@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">PC Monitor</string>
+    <string name="title_gpu">GPU</string>
+    <string name="title_cpu">CPU</string>
+    <string name="title_vram">VRAM</string>
+    <string name="title_ram">RAM</string>
+    <string name="status_connected">CONNECTED</string>
+    <string name="status_scanning">SEARCHING PC...</string>
+    <string name="status_disconnected">OFFLINE</string>
+</resources>
