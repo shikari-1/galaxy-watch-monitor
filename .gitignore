@@ -31,6 +31,7 @@ desktop.ini
 # Android packages & prebuilt APKs (exceeds GitHub 100MB file limit)
 *.apk
 *.aab
+*.zip
 tools/*.apk
 
 # Android & Gradle Build Artifacts
