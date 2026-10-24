@@ -105,33 +105,6 @@ To keep your watch display active 24/7 without turning off while resting on the 
    - Place your watch on its magnetic charging puck or desk stand.
    - The screen will remain illuminated with live temperatures and usage metrics!
 
----
-
-## Pushing to GitHub
-
-To publish this project to your GitHub account:
-
-```bash
-# Initialize git repository
-git init
-
-# Add all files
-git add .
-
-# Create initial commit
-git commit -m "feat: initial commit of Galaxy Watch 4 hardware monitor"
-
-# Rename branch to main
-git branch -M main
-
-# Add your GitHub remote repository (replace with your repo URL)
-git remote add origin https://github.com/<your-username>/galaxy-watch-monitor.git
-
-# Push to GitHub
-git push -u origin main
-```
-
----
 
 ## License
 MIT License. Free to use, modify, and distribute.
