@@ -159,8 +159,10 @@ async def run_ble_server():
     publisher = None
     if WINRT_AVAILABLE:
         try:
+            import uuid
             publisher = adv.BluetoothLEAdvertisementPublisher()
-            logger.info("[+] Windows Bluetooth LE Advertisement Publisher initialized.")
+            publisher.advertisement.service_uuids.append(uuid.UUID(SERVICE_UUID))
+            logger.info(f"[+] Windows BLE Publisher initialized with Service UUID {SERVICE_UUID}")
         except Exception as e:
             logger.error(f"[-] Could not initialize BLE Publisher: {e}")
 

@@ -86,15 +86,19 @@ class BleClientManager(private val context: Context) {
         isScanning = true
         Log.i(TAG, "Scanning for PC Hardware Monitor BLE Service...")
 
-        val filter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(SERVICE_UUID))
-            .build()
-
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        scanner.startScan(listOf(filter), settings, scanCallback)
+        // Scan for our telemetry beacon (Company ID 0x05F9) or Service UUID
+        val mfgFilter = ScanFilter.Builder()
+            .setManufacturerData(0x05F9, byteArrayOf())
+            .build()
+        val serviceFilter = ScanFilter.Builder()
+            .setServiceUuid(ParcelUuid(SERVICE_UUID))
+            .build()
+
+        scanner.startScan(listOf(mfgFilter, serviceFilter), settings, scanCallback)
     }
 
     private fun stopScan() {
