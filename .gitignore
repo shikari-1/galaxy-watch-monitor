@@ -28,6 +28,8 @@ desktop.ini
 # Local Development & Sideloading Tools (not part of the repository)
 tools/
 .agents/
+GEMINI.md
+.last_watch_port
 
 # Local logs & screenshots
 *.log
