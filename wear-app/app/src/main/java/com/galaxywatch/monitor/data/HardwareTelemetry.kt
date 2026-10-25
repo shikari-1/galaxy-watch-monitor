@@ -18,6 +18,7 @@ data class HardwareTelemetry(
     val gpuPowerW: Int = 0,
     val istHour: Int = 0,
     val istMinute: Int = 0,
+    val istSecond: Int = 0,
     val isOnline: Boolean = false,
     val lastUpdateTimestamp: Long = 0L
 ) {
@@ -27,5 +28,5 @@ data class HardwareTelemetry(
     val ramTotalGb: String get() = "%.1f".format(ramTotalMb / 1024f)
 
     val formattedIstTime: String
-        get() = "%02d:%02d".format(istHour, istMinute)
+        get() = "%02d:%02d:%02d".format(istHour, istMinute, istSecond)
 }

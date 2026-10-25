@@ -124,9 +124,7 @@ def encode_telemetry_packet():
     now_ist = datetime.now(IST)
     ist_hour = now_ist.hour
     ist_min = now_ist.minute
-
-    # Flags: 0x01 = live
-    flags = 0x01
+    ist_sec = now_ist.second
 
     packet = struct.pack(
         "<BBBBHHHHBBBB",
@@ -141,7 +139,7 @@ def encode_telemetry_packet():
         min(255, max(0, gpu_pwr)),
         ist_hour,
         ist_min,
-        flags
+        ist_sec
     )
     return packet, gpu_temp, cpu_temp, gpu_usage, cpu_usage, gpu_pwr, ram_used_mb, ram_total_mb
 

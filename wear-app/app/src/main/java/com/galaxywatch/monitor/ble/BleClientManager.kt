@@ -34,7 +34,7 @@ class BleClientManager(private val context: Context) {
         val CHARACTERISTIC_UUID: UUID = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
         val CLIENT_CONFIG_DESCRIPTOR: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
-        private const val STALE_TIMEOUT_MS = 2500L
+        private const val STALE_TIMEOUT_MS = 4500L
     }
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -209,6 +209,7 @@ class BleClientManager(private val context: Context) {
         val gpuPowerW = buffer.get().toInt() and 0xFF
         val istHour = buffer.get().toInt() and 0xFF
         val istMinute = buffer.get().toInt() and 0xFF
+        val istSecond = if (buffer.hasRemaining()) buffer.get().toInt() and 0xFF else 0
 
         val vramPct = if (vramTotalMb > 0) ((vramUsedMb.toFloat() / vramTotalMb) * 100).toInt() else 0
         val ramPct = if (ramTotalMb > 0) ((ramUsedMb.toFloat() / ramTotalMb) * 100).toInt() else 0
@@ -227,6 +228,7 @@ class BleClientManager(private val context: Context) {
             gpuPowerW = gpuPowerW,
             istHour = istHour,
             istMinute = istMinute,
+            istSecond = istSecond,
             isOnline = true,
             lastUpdateTimestamp = System.currentTimeMillis()
         )
