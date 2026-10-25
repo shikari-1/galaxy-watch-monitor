@@ -110,6 +110,26 @@ class BleClientManager(private val context: Context) {
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val record = result.scanRecord
+            // 1. Direct Service Data Reception
+            val serviceData = record?.getServiceData(ParcelUuid(SERVICE_UUID))
+            if (serviceData != null && serviceData.size >= 15) {
+                decodeTelemetry(serviceData)
+                return
+            }
+            // 2. Direct Manufacturer Data Reception
+            val mfgData = record?.manufacturerSpecificData
+            if (mfgData != null && mfgData.size() > 0) {
+                for (i in 0 until mfgData.size()) {
+                    val bytes = mfgData.valueAt(i)
+                    if (bytes != null && bytes.size >= 15) {
+                        decodeTelemetry(bytes)
+                        return
+                    }
+                }
+            }
+
+            // 3. Fallback: Connect via GATT
             val device = result.device
             Log.i(TAG, "Discovered PC BLE Host: ${device.name ?: device.address}")
             stopScan()

@@ -2,7 +2,7 @@
 """
 Galaxy Watch 4 - Desktop Bluetooth Low Energy (BLE) Telemetry Server
 ===================================================================
-Transmits compact 16-byte binary telemetry packets every 1.0s over BLE GATT.
+Transmits compact 16-byte binary telemetry packets every 1.0s over BLE.
 Runs simultaneously with other PC Bluetooth devices (headphones, mouse, controllers)
 without interference, and with near-zero watch battery/thermal load.
 """
@@ -30,9 +30,18 @@ except ImportError:
     logger.error("psutil is required. Run: pip install psutil")
     sys.exit(1)
 
-# BLE Service & Characteristic UUIDs (Matching Wear OS BleClientManager)
+# Check WinRT BLE availability
+WINRT_AVAILABLE = False
+try:
+    import winrt.windows.devices.bluetooth.advertisement as adv
+    import winrt.windows.storage.streams as streams
+    WINRT_AVAILABLE = True
+except ImportError:
+    logger.warning("WinRT Bluetooth not found. Telemetry will run in console preview mode.")
+
+# BLE Service & Company IDs (Matching Wear OS BleClientManager)
+COMPANY_ID = 0x05F9 # Custom Company Identifier for telemetry beacon
 SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
-CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
 # IST Timezone (UTC + 5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -134,36 +143,58 @@ def encode_telemetry_packet():
         ist_min,
         flags
     )
-    return packet
+    return packet, gpu_temp, cpu_temp, gpu_usage, cpu_usage, gpu_pwr, ram_used_mb, ram_total_mb
 
 async def run_ble_server():
     """Runs the 1-second BLE broadcast daemon."""
     logger.info("========================================================")
     logger.info("   Galaxy Watch 4 - Desktop BLE Telemetry Server        ")
     logger.info("========================================================")
-    logger.info(f" [+] Telemetry Rate : 1.0s (1Hz)")
-    logger.info(f" [+] BLE Service    : {SERVICE_UUID}")
-    logger.info(f" [+] Packet Size    : 16 bytes (Compact binary)")
+    logger.info(" [+] Telemetry Rate : 1.0s (1Hz)")
+    logger.info(" [+] Radio Protocol : Bluetooth Low Energy (BLE Broadcast)")
+    logger.info(f" [+] Company ID     : 0x{COMPANY_ID:04X}")
+    logger.info(" [+] Packet Size    : 16 bytes (Compact binary)")
     logger.info("--------------------------------------------------------")
 
-    try:
-        from bleak import BleakServer
-        logger.info("[*] Bleak server module loaded.")
-    except ImportError:
-        logger.info("[*] Note: To broadcast over Windows BLE GATT, install: pip install bleak")
-        logger.info("[*] Running in mock/socket broadcast mode for testing...")
+    publisher = None
+    if WINRT_AVAILABLE:
+        try:
+            publisher = adv.BluetoothLEAdvertisementPublisher()
+            logger.info("[+] Windows Bluetooth LE Advertisement Publisher initialized.")
+        except Exception as e:
+            logger.error(f"[-] Could not initialize BLE Publisher: {e}")
 
     psutil.cpu_percent(interval=None)
 
     while True:
         try:
-            packet = encode_telemetry_packet()
-            # Decode for console preview
-            gpu_t, cpu_t, gpu_u, cpu_u = packet[0], packet[1], packet[2], packet[3]
-            now_ist = datetime.now(IST).strftime("%H:%M")
-            logger.info(f"[{now_ist} IST] Broadcast 1Hz: GPU {gpu_t}°C ({gpu_u}%) | CPU {cpu_t}°C ({cpu_u}%) | 16B sent")
+            packet, gpu_t, cpu_t, gpu_u, cpu_u, pwr, ram_u, ram_tot = encode_telemetry_packet()
+
+            # Broadcast over Windows BLE
+            if publisher:
+                try:
+                    # Update manufacturer data payload
+                    writer = streams.DataWriter()
+                    writer.write_bytes(packet)
+                    mfg_data = adv.BluetoothLEManufacturerData(COMPANY_ID, writer.detach_buffer())
+
+                    # Clear previous and append updated data
+                    publisher.advertisement.manufacturer_data.clear()
+                    publisher.advertisement.manufacturer_data.append(mfg_data)
+
+                    # Start or keep alive
+                    if publisher.status != adv.BluetoothLEAdvertisementPublisherStatus.STARTED:
+                        publisher.start()
+                except Exception as ble_err:
+                    logger.debug(f"BLE Broadcast tick: {ble_err}")
+
+            now_ist = datetime.now(IST).strftime("%H:%M:%S")
+            logger.info(
+                f"[{now_ist} IST] 1Hz Broadcast: GPU {gpu_t}°C ({gpu_u}%) {pwr}W | "
+                f"CPU {cpu_t}°C ({cpu_u}%) | RAM {ram_u // 1024}G/{ram_tot // 1024}G | 16B BLE sent"
+            )
         except Exception as e:
-            logger.error(f"Error broadcasting telemetry: {e}")
+            logger.error(f"Error in telemetry broadcast loop: {e}")
 
         await asyncio.sleep(1.0)
 

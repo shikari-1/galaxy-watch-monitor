@@ -25,8 +25,9 @@ desktop.ini
 *.swp
 *.swo
 
-# Local logs
+# Local logs & screenshots
 *.log
+watch_screen*.png
 
 # Android packages & prebuilt APKs (exceeds GitHub 100MB file limit)
 *.apk
