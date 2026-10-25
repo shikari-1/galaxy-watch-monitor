@@ -21,10 +21,10 @@ data class HardwareTelemetry(
     val isOnline: Boolean = false,
     val lastUpdateTimestamp: Long = 0L
 ) {
-    val vramUsedGb: Float get() = (vramUsedMb / 1024f)
-    val vramTotalGb: Float get() = (vramTotalMb / 1024f)
-    val ramUsedGb: Float get() = (ramUsedMb / 1024f)
-    val ramTotalGb: Float get() = (ramTotalMb / 1024f)
+    val vramUsedGb: String get() = "%.1f".format(vramUsedMb / 1024f)
+    val vramTotalGb: String get() = "%.1f".format(vramTotalMb / 1024f)
+    val ramUsedGb: String get() = "%.1f".format(ramUsedMb / 1024f)
+    val ramTotalGb: String get() = "%.1f".format(ramTotalMb / 1024f)
 
     val formattedIstTime: String
         get() = "%02d:%02d".format(istHour, istMinute)
