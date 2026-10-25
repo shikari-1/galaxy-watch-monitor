@@ -1,5 +1,6 @@
 @echo off
 title Galaxy Watch 4 Hardware Monitor Server
+cd /d "%~dp0"
 color 0b
 echo ========================================================
 echo    Starting Galaxy Watch 4 Hardware Monitor Server...

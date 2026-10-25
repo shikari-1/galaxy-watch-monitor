@@ -25,20 +25,25 @@ desktop.ini
 *.swp
 *.swo
 
+# Local Development & Sideloading Tools (not part of the repository)
+tools/
+.agents/
+
 # Local logs & screenshots
 *.log
+screenshots/
 watch_screen*.png
+watch_live_*.png
+*.png
 
 # Android packages & prebuilt APKs (exceeds GitHub 100MB file limit)
 *.apk
 *.aab
 *.zip
-tools/*.apk
 
 # Android & Gradle Build Artifacts
 .gradle/
 **/build/
 *.iml
-.cxx/
+*.cxx/
 local.properties
-
