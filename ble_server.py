@@ -159,10 +159,11 @@ async def run_ble_server():
     publisher = None
     if WINRT_AVAILABLE:
         try:
-            import uuid
             publisher = adv.BluetoothLEAdvertisementPublisher()
-            publisher.advertisement.service_uuids.append(uuid.UUID(SERVICE_UUID))
-            logger.info(f"[+] Windows BLE Publisher initialized with Service UUID {SERVICE_UUID}")
+            def on_status_changed(sender, args):
+                logger.info(f"[BLE Status Changed] status={args.status}, error={args.error}")
+            publisher.add_status_changed(on_status_changed)
+            logger.info(f"[+] Windows BLE Publisher initialized for Company ID 0x{COMPANY_ID:04X} (Compact 16B beacon)")
         except Exception as e:
             logger.error(f"[-] Could not initialize BLE Publisher: {e}")
 
@@ -188,7 +189,7 @@ async def run_ble_server():
                     if publisher.status != adv.BluetoothLEAdvertisementPublisherStatus.STARTED:
                         publisher.start()
                 except Exception as ble_err:
-                    logger.debug(f"BLE Broadcast tick: {ble_err}")
+                    logger.warning(f"BLE Broadcast tick error: {ble_err}")
 
             now_ist = datetime.now(IST).strftime("%H:%M:%S")
             logger.info(

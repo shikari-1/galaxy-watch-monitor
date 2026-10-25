@@ -47,14 +47,21 @@ class BleClientManager(private val context: Context) {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // Watchdog to mark telemetry offline if BLE packet stops arriving
+    // Watchdog to mark telemetry offline if BLE packet stops arriving and cycle scan if needed
     private val livenessWatchdog = object : Runnable {
         override fun run() {
             val lastUpdate = _telemetryState.value.lastUpdateTimestamp
-            if (lastUpdate > 0 && (System.currentTimeMillis() - lastUpdate > STALE_TIMEOUT_MS)) {
+            val now = System.currentTimeMillis()
+            if (lastUpdate > 0 && (now - lastUpdate > STALE_TIMEOUT_MS)) {
                 if (_telemetryState.value.isOnline) {
                     _telemetryState.value = _telemetryState.value.copy(isOnline = false)
                 }
+                if (now - lastUpdate > 5000L && isScanning) {
+                    stopScan()
+                    startScan()
+                }
+            } else if (!isScanning && bluetoothGatt == null) {
+                startScan()
             }
             handler.postDelayed(this, 1000)
         }
@@ -90,15 +97,13 @@ class BleClientManager(private val context: Context) {
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        // Scan for our telemetry beacon (Company ID 0x05F9) or Service UUID
+        // Match our Company ID 0x05F9 or inspect incoming advertisements in onScanResult
         val mfgFilter = ScanFilter.Builder()
-            .setManufacturerData(0x05F9, byteArrayOf())
+            .setManufacturerData(0x05F9, byteArrayOf(), byteArrayOf())
             .build()
-        val serviceFilter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(SERVICE_UUID))
-            .build()
+        val emptyFilter = ScanFilter.Builder().build()
 
-        scanner.startScan(listOf(mfgFilter, serviceFilter), settings, scanCallback)
+        scanner.startScan(listOf(mfgFilter, emptyFilter), settings, scanCallback)
     }
 
     private fun stopScan() {
@@ -114,30 +119,21 @@ class BleClientManager(private val context: Context) {
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val record = result.scanRecord
-            // 1. Direct Service Data Reception
-            val serviceData = record?.getServiceData(ParcelUuid(SERVICE_UUID))
+            val record = result.scanRecord ?: return
+
+            // 1. Direct Manufacturer Data Reception (Company ID 0x05F9)
+            val mfgBytes = record.getManufacturerSpecificData(0x05F9)
+            if (mfgBytes != null && mfgBytes.size >= 15) {
+                decodeTelemetry(mfgBytes)
+                return
+            }
+
+            // 2. Direct Service Data Reception
+            val serviceData = record.getServiceData(ParcelUuid(SERVICE_UUID))
             if (serviceData != null && serviceData.size >= 15) {
                 decodeTelemetry(serviceData)
                 return
             }
-            // 2. Direct Manufacturer Data Reception
-            val mfgData = record?.manufacturerSpecificData
-            if (mfgData != null && mfgData.size() > 0) {
-                for (i in 0 until mfgData.size()) {
-                    val bytes = mfgData.valueAt(i)
-                    if (bytes != null && bytes.size >= 15) {
-                        decodeTelemetry(bytes)
-                        return
-                    }
-                }
-            }
-
-            // 3. Fallback: Connect via GATT
-            val device = result.device
-            Log.i(TAG, "Discovered PC BLE Host: ${device.name ?: device.address}")
-            stopScan()
-            bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
         }
 
         override fun onScanFailed(errorCode: Int) {
