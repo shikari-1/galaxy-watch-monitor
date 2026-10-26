@@ -97,11 +97,8 @@ class BleClientManager(private val context: Context) {
             .setReportDelay(0)
             .build()
 
-        val mfgFilter = ScanFilter.Builder()
-            .setManufacturerData(0x05F9, byteArrayOf(), byteArrayOf())
-            .build()
-
-        scanner.startScan(listOf(mfgFilter), settings, scanCallback)
+        val emptyFilter = ScanFilter.Builder().build()
+        scanner.startScan(listOf(emptyFilter), settings, scanCallback)
     }
 
     private fun stopScan() {
@@ -230,5 +227,9 @@ class BleClientManager(private val context: Context) {
             isOnline = true,
             lastUpdateTimestamp = System.currentTimeMillis()
         )
+
+        Log.i(TAG, "[PACKET DECODED] Time: %02d:%02d:%02d | GPU: %d°C (%d%%) | CPU: %d°C (%d%%)".format(
+            istHour, istMinute, istSecond, gpuTemp, gpuUsage, cpuTemp, cpuUsage
+        ))
     }
 }
