@@ -47,7 +47,7 @@ class BleClientManager(private val context: Context) {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // Watchdog to mark telemetry offline if BLE packet stops arriving and cycle scan if needed
+    // Watchdog to mark telemetry offline if BLE packet stops arriving
     private val livenessWatchdog = object : Runnable {
         override fun run() {
             val lastUpdate = _telemetryState.value.lastUpdateTimestamp
@@ -55,10 +55,6 @@ class BleClientManager(private val context: Context) {
             if (lastUpdate > 0 && (now - lastUpdate > STALE_TIMEOUT_MS)) {
                 if (_telemetryState.value.isOnline) {
                     _telemetryState.value = _telemetryState.value.copy(isOnline = false)
-                }
-                if (now - lastUpdate > 5000L && isScanning) {
-                    stopScan()
-                    startScan()
                 }
             } else if (!isScanning && bluetoothGatt == null) {
                 startScan()
@@ -95,15 +91,17 @@ class BleClientManager(private val context: Context) {
 
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+            .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
+            .setReportDelay(0)
             .build()
 
-        // Match our Company ID 0x05F9 or inspect incoming advertisements in onScanResult
         val mfgFilter = ScanFilter.Builder()
             .setManufacturerData(0x05F9, byteArrayOf(), byteArrayOf())
             .build()
-        val emptyFilter = ScanFilter.Builder().build()
 
-        scanner.startScan(listOf(mfgFilter, emptyFilter), settings, scanCallback)
+        scanner.startScan(listOf(mfgFilter), settings, scanCallback)
     }
 
     private fun stopScan() {

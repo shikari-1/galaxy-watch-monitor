@@ -174,18 +174,24 @@ async def run_ble_server():
             # Broadcast over Windows BLE
             if publisher:
                 try:
+                    # Windows locks the advertisement payload while STARTED.
+                    # We must stop, update the manufacturer payload, and restart so the radio transmits the new frame.
+                    if publisher.status == adv.BluetoothLEAdvertisementPublisherStatus.STARTED:
+                        publisher.stop()
+                        for _ in range(15):
+                            if publisher.status == adv.BluetoothLEAdvertisementPublisherStatus.STOPPED:
+                                break
+                            await asyncio.sleep(0.02)
+
                     # Update manufacturer data payload
                     writer = streams.DataWriter()
                     writer.write_bytes(packet)
                     mfg_data = adv.BluetoothLEManufacturerData(COMPANY_ID, writer.detach_buffer())
 
-                    # Clear previous and append updated data
                     publisher.advertisement.manufacturer_data.clear()
                     publisher.advertisement.manufacturer_data.append(mfg_data)
 
-                    # Start or keep alive
-                    if publisher.status != adv.BluetoothLEAdvertisementPublisherStatus.STARTED:
-                        publisher.start()
+                    publisher.start()
                 except Exception as ble_err:
                     logger.warning(f"BLE Broadcast tick error: {ble_err}")
 
