@@ -47,6 +47,7 @@ class BleClientManager(private val context: Context) {
     private var bluetoothGatt: BluetoothGatt? = null
     private var isScanning = false
     private var isStopped = false
+    private var connectionAttemptTimestamp = 0L
 
     private val _telemetryState = MutableStateFlow(HardwareTelemetry())
     val telemetryState: StateFlow<HardwareTelemetry> = _telemetryState.asStateFlow()
@@ -67,8 +68,8 @@ class BleClientManager(private val context: Context) {
                     BleConnectionService.updateTelemetry(offline)
                 }
 
-                // If connection is dead/zombie, clean it up completely so scan can resume
-                if (bluetoothGatt != null) {
+                // If connection is dead/zombie, only clean it up if it has been trying for > 8s without packets
+                if (bluetoothGatt != null && (now - connectionAttemptTimestamp > 8000L)) {
                     Log.w(TAG, "Cleaning up zombie GATT connection...")
                     try {
                         bluetoothGatt?.disconnect()
@@ -79,7 +80,7 @@ class BleClientManager(private val context: Context) {
                     bluetoothGatt = null
                 }
 
-                if (!isScanning) {
+                if (bluetoothGatt == null && !isScanning) {
                     Log.i(TAG, "Restarting scan for PC server...")
                     startScan()
                 }
@@ -192,6 +193,7 @@ class BleClientManager(private val context: Context) {
 
     private fun connectToDevice(device: BluetoothDevice) {
         Log.i(TAG, "Connecting to PC at ${device.address} via TRANSPORT_LE...")
+        connectionAttemptTimestamp = System.currentTimeMillis()
         bluetoothGatt = device.connectGatt(
             context,
             false,

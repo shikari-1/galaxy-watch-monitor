@@ -10,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -29,8 +28,8 @@ import kotlin.math.min
  * 1:1 Recreation of Web Companion "faceArc" (Dual Arc HUD) for Wear OS.
  * Features:
  * - Top: Breathing 24-Hour Digital Clock with Seconds ("HH:MM:SS" IST) + Live Green Dot
- * - Center: Dual Perfectly Circular Speedometer Arcs (GPU & CPU with bold 32sp readout)
- * - Bottom: Dual Horizontal Memory Bars (VRAM & RAM with full-track thermal gradient)
+ * - Center: Dual Mirrored Speedometer Arcs (GPU & CPU with load/power subtext)
+ * - Bottom: Dual Horizontal Memory Bars (VRAM & RAM sized to comfortably clear circular bezel)
  */
 @Composable
 fun DualArcHudScreen(
@@ -111,7 +110,7 @@ fun DualArcHudScreen(
             // =================================================================
             Box(
                 modifier = Modifier
-                    .padding(top = 6.dp)
+                    .padding(top = 4.dp)
                     .scale(clockScale),
                 contentAlignment = Alignment.Center
             ) {
@@ -122,18 +121,17 @@ fun DualArcHudScreen(
                     // Live Indicator Dot (Green = Connected & Streaming, Amber = Searching/Offline)
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
+                            .size(5.dp)
                             .clip(CircleShape)
                             .background(if (telemetry.isOnline) Color(0xFF00E676) else Color(0xFFFF9100))
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = activeClockText,
                         color = Color.White.copy(alpha = clockAlpha),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.sp
+                        fontFamily = FontFamily.Monospace
                     )
                 }
             }
@@ -148,42 +146,48 @@ fun DualArcHudScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // --- Left: GPU Gauge Box (.hud-gauge-box) ---
+                // --- Left: GPU Gauge Box (Sweeps Outer Left) ---
                 WebSpeedometerDial(
                     tag = "GPU",
                     temp = animatedGpuTemp.toInt(),
+                    subText = "${telemetry.gpuUsage}% · ${telemetry.gpuPowerW}W",
                     maxVal = 90,
-                    modifier = Modifier.size(92.dp)
+                    isMirrored = false,
+                    modifier = Modifier.size(94.dp)
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
-                // --- Right: CPU Gauge Box (.hud-gauge-box) ---
+                // --- Right: CPU Gauge Box (Sweeps Mirrored Outer Right) ---
                 WebSpeedometerDial(
                     tag = "CPU",
                     temp = animatedCpuTemp.toInt(),
+                    subText = "${telemetry.cpuUsage}%",
                     maxVal = 90,
-                    modifier = Modifier.size(92.dp)
+                    isMirrored = true,
+                    modifier = Modifier.size(94.dp)
                 )
             }
 
             // =================================================================
-            // 3. BOTTOM FULL-TRACK MEMORY BARS (.hud-bottom-bars)
+            // 3. BOTTOM MEMORY SECTION (.hud-bottom-bar)
+            // Sized at 148.dp width with 16.dp bottom padding to guarantee that
+            // both VRAM and RAM bars comfortably clear the circular screen bezel.
             // =================================================================
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.72f)
-                    .padding(bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .width(148.dp)
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                // VRAM Bar
+                // VRAM Segment
                 WebMemoryBar(
                     label = "VRAM",
                     valueStr = "${telemetry.vramUsedGb} / ${telemetry.vramTotalGb}G (${telemetry.vramPercent}%)",
                     percent = telemetry.vramPercent
                 )
 
-                // RAM Bar
+                // RAM Segment
                 WebMemoryBar(
                     label = "RAM",
                     valueStr = "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G (${telemetry.ramPercent}%)",
@@ -195,42 +199,41 @@ fun DualArcHudScreen(
 }
 
 /**
- * Speedometer Dial with 140° -> 40° sweep (260° total travel).
- * Guarantees a mathematically 1:1 equilateral circular arc.
+ * Speedometer Dial matching web `.hud-gauge-box` + SVG `M 20 135 A 72 72 0 1 1 140 135`.
+ * Enforces a strict 1:1 equilateral square so the arc is perfectly circular.
  */
 @Composable
 private fun WebSpeedometerDial(
     tag: String,
     temp: Int,
+    subText: String,
     maxVal: Int,
+    isMirrored: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val progress = (temp.toFloat() / maxVal.toFloat()).coerceIn(0f, 1f)
-    val startAngle = 140f
-    val sweepAngle = 260f
+    val startAngle = if (!isMirrored) 140f else 40f
+    val sweepAngle = if (!isMirrored) 260f else -260f
 
     // Thermal color gradient matching web #hudMeterGrad
     val gaugeColor = when {
-        temp <= 50 -> Color(0xFF00F0FF) // Cyber Cyan
-        temp <= 65 -> Color(0xFF00FFA3) // Neon Mint
-        temp <= 75 -> Color(0xFFFFB020) // Amber
-        temp <= 82 -> Color(0xFFFF5500) // Deep Orange
-        else -> Color(0xFFFF0022)       // Critical Red
+        temp >= 83 -> Color(0xFFFF0022) // Crit Red
+        temp >= 75 -> Color(0xFFFF5500) // Crit Orange
+        temp >= 68 -> Color(0xFFFFB020) // Warn Amber
+        else -> Color.White             // Pure White
     }
 
     Box(
-        modifier = modifier,
+        modifier = modifier.aspectRatio(1f),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 7.dp.toPx()
-            val canvasW = size.width
-            val canvasH = size.height
-
-            val diameter = min(canvasW, canvasH) - strokeWidth
+        // Speedometer Arc Track (enforcing 1:1 circle diameter)
+        Canvas(modifier = Modifier.fillMaxSize().padding(4.dp)) {
+            val strokeWidth = 8.dp.toPx()
+            val diameter = min(size.width, size.height) - strokeWidth
             val topLeft = Offset(
-                x = (canvasW - diameter) / 2f,
-                y = (canvasH - diameter) / 2f
+                x = (size.width - diameter) / 2f,
+                y = (size.height - diameter) / 2f
             )
             val arcSize = Size(diameter, diameter)
 
@@ -268,9 +271,9 @@ private fun WebSpeedometerDial(
             // Tag (.hud-tag)
             Text(
                 text = tag,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
+                letterSpacing = 1.2.sp,
                 color = Color.White
             )
 
@@ -281,28 +284,35 @@ private fun WebSpeedometerDial(
             ) {
                 Text(
                     text = "$temp",
-                    fontSize = 32.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    lineHeight = 32.sp
+                    lineHeight = 28.sp
                 )
                 Text(
                     text = "°",
-                    fontSize = 24.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xE6FFFFFF),
-                    lineHeight = 24.sp,
+                    lineHeight = 20.sp,
                     modifier = Modifier.padding(start = 1.dp)
                 )
             }
+
+            // Sub-metric: Load % and Power
+            Text(
+                text = subText,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFB0B0B0)
+            )
         }
     }
 }
 
 /**
  * Memory Segment matching web `.hud-bar-segment` and CSS `.bar-fill`.
- * The thermal gradient spans the 100% full track width (background-size: 275px 100%),
- * ensuring 0-55% is pure white, 70% amber, 82% orange, and 90%+ red.
+ * Rounded pill clipping prevents flat cutoffs.
  */
 @Composable
 private fun WebMemoryBar(
@@ -313,7 +323,7 @@ private fun WebMemoryBar(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         // Metadata Row (.hud-bar-meta)
         Row(
@@ -321,60 +331,45 @@ private fun WebMemoryBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Label (.bar-lbl)
             Text(
                 text = label,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
+                letterSpacing = 0.8.sp,
                 color = Color.White
             )
 
-            // Value (.bar-val)
             Text(
                 text = valueStr,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFFE5E7EB)
             )
         }
 
-        // Mini Progress Bar matching CSS .bar-fill
-        Canvas(
+        val webGradient = Brush.horizontalGradient(
+            0.00f to Color.White,
+            0.55f to Color.White,
+            0.70f to Color(0xFFFFB020),
+            0.82f to Color(0xFFFF5500),
+            0.90f to Color(0xFFFF0022),
+            1.00f to Color(0xFFFF0022)
+        )
+
+        // Pill clipped progress bar
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+                .background(Color(0x22FFFFFF))
         ) {
-            val trackWidth = size.width
-            val trackHeight = size.height
-            val cornerRadius = CornerRadius(trackHeight / 2f, trackHeight / 2f)
-
-            // Background track (.mini-progress: rgba(255, 255, 255, 0.12))
-            drawRoundRect(
-                color = Color(0x22FFFFFF),
-                size = size,
-                cornerRadius = cornerRadius
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction = (percent / 100f).coerceIn(0f, 1f))
+                    .background(webGradient)
             )
-
-            // Active Fill with gradient pinned to the 100% trackWidth
-            val fillWidth = trackWidth * (percent / 100f).coerceIn(0f, 1f)
-            if (fillWidth > 0f) {
-                val webGradient = Brush.horizontalGradient(
-                    0.00f to Color.White,
-                    0.55f to Color.White,             // 0-55% is pure white!
-                    0.70f to Color(0xFFFFB020),       // 70% Amber
-                    0.82f to Color(0xFFFF5500),       // 82% Orange
-                    0.90f to Color(0xFFFF0022),       // 90%+ Crit Red
-                    1.00f to Color(0xFFFF0022),
-                    startX = 0f,
-                    endX = trackWidth                 // Full track span!
-                )
-                drawRoundRect(
-                    brush = webGradient,
-                    size = Size(fillWidth, trackHeight),
-                    cornerRadius = cornerRadius
-                )
-            }
         }
     }
 }
