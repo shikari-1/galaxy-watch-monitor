@@ -172,8 +172,8 @@ fun DualArcHudScreen(
             // =================================================================
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.82f)
-                    .padding(bottom = 6.dp),
+                    .fillMaxWidth(0.72f)
+                    .padding(bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // VRAM Bar
