@@ -1,6 +1,7 @@
 package com.galaxywatch.monitor
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,18 +13,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.galaxywatch.monitor.ble.BleClientManager
+import com.galaxywatch.monitor.ble.BleConnectionService
+import com.galaxywatch.monitor.data.HardwareTelemetry
 import com.galaxywatch.monitor.ui.DualArcHudScreen
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
-
-    private lateinit var bleManager: BleClientManager
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions.entries.all { it.value }
         if (granted) {
-            bleManager.start()
+            startBleService()
         }
     }
 
@@ -33,12 +35,13 @@ class MainActivity : ComponentActivity() {
         // Keep screen awake in full color while resting on the desk charger
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        bleManager = BleClientManager(applicationContext)
-
         checkAndRequestPermissions()
 
         setContent {
-            val telemetry by bleManager.telemetryState.collectAsState()
+            // Bind to the service's shared BleClientManager for live telemetry
+            val manager = BleConnectionService.bleManager
+            val telemetry by (manager?.telemetryState ?: MutableStateFlow(HardwareTelemetry()))
+                .collectAsState()
             DualArcHudScreen(telemetry = telemetry)
         }
     }
@@ -56,19 +59,35 @@ class MainActivity : ComponentActivity() {
         }
 
         if (required.isEmpty()) {
-            bleManager.start()
+            startBleService()
         } else {
             permissionLauncher.launch(required.toTypedArray())
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        bleManager.start()
+    private fun startBleService() {
+        val serviceIntent = Intent(this, BleConnectionService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        bleManager.stop()
+    override fun onResume() {
+        super.onResume()
+        // Ensure the service is running when the Activity comes to front
+        if (hasBluetoothPermissions()) {
+            startBleService()
+        }
     }
+
+    private fun hasBluetoothPermissions(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                   ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        }
+        return true
+    }
+
+    // NOTE: We intentionally do NOT stop the service in onDestroy().
+    // The Foreground Service keeps the BLE connection alive independently
+    // of the Activity lifecycle. The service stops when the watch is
+    // taken off the charger or via explicit ACTION_STOP.
 }

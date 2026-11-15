@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Galaxy Watch 4 - Desktop Bluetooth Low Energy (BLE) Telemetry Server
-===================================================================
-Transmits compact 16-byte binary telemetry packets every 1.0s over BLE.
-Runs simultaneously with other PC Bluetooth devices (headphones, mouse, controllers)
-without interference, and with near-zero watch battery/thermal load.
+Galaxy Watch 4 - Desktop Bluetooth Low Energy (BLE) Telemetry GATT Server
+========================================================================
+Hosts a standard BLE GATT Server on Windows broadcasting live PC hardware telemetry.
+Pushes compact 16-byte binary telemetry packets every 1.0s via GATT Notifications.
+Zero scan throttling, deterministic 1Hz cadence, and low watch power/thermal overhead.
 """
 
 import os
@@ -14,6 +14,7 @@ import struct
 import asyncio
 import logging
 import subprocess
+import uuid
 from datetime import datetime, timezone, timedelta
 
 # Logging setup
@@ -22,7 +23,7 @@ logging.basicConfig(
     format="%(asctime)s [BLE-%(levelname)s] %(message)s",
     datefmt="%H:%M:%S"
 )
-logger = logging.getLogger("BleServer")
+logger = logging.getLogger("BleGattServer")
 
 try:
     import psutil
@@ -33,15 +34,18 @@ except ImportError:
 # Check WinRT BLE availability
 WINRT_AVAILABLE = False
 try:
-    import winrt.windows.devices.bluetooth.advertisement as adv
+    import winrt.windows.devices.bluetooth.genericattributeprofile as gap
     import winrt.windows.storage.streams as streams
     WINRT_AVAILABLE = True
 except ImportError:
-    logger.warning("WinRT Bluetooth not found. Telemetry will run in console preview mode.")
+    logger.warning("WinRT Bluetooth GATT APIs not found. Please ensure Windows 10/11 with winrt package.")
 
-# BLE Service & Company IDs (Matching Wear OS BleClientManager)
-COMPANY_ID = 0x05F9 # Custom Company Identifier for telemetry beacon
-SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
+# Standard 128-bit UUIDs for PC Hardware Monitor Telemetry Service
+SERVICE_UUID_STR = "0000ffe0-0000-1000-8000-00805f9b34fb"
+CHARACTERISTIC_UUID_STR = "0000ffe1-0000-1000-8000-00805f9b34fb"
+
+SERVICE_UUID = uuid.UUID(SERVICE_UUID_STR)
+CHARACTERISTIC_UUID = uuid.UUID(CHARACTERISTIC_UUID_STR)
 
 # IST Timezone (UTC + 5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -106,7 +110,7 @@ def encode_telemetry_packet():
     [12] gpuPowerW (uint8)
     [13] istHour (uint8)
     [14] istMinute (uint8)
-    [15] flags (uint8)
+    [15] istSecond (uint8)
     """
     # CPU
     cpu_usage = int(psutil.cpu_percent(interval=None))
@@ -143,70 +147,108 @@ def encode_telemetry_packet():
     )
     return packet, gpu_temp, cpu_temp, gpu_usage, cpu_usage, gpu_pwr, ram_used_mb, ram_total_mb
 
-async def run_ble_server():
-    """Runs the 1-second BLE broadcast daemon."""
+async def run_gatt_server():
+    """Hosts the Windows BLE GATT Server and transmits 1.0s telemetry notifications."""
     logger.info("========================================================")
-    logger.info("   Galaxy Watch 4 - Desktop BLE Telemetry Server        ")
+    logger.info("   Galaxy Watch 4 - Desktop BLE GATT Telemetry Server   ")
     logger.info("========================================================")
-    logger.info(" [+] Telemetry Rate : 1.0s (1Hz)")
-    logger.info(" [+] Radio Protocol : Bluetooth Low Energy (BLE Broadcast)")
-    logger.info(f" [+] Company ID     : 0x{COMPANY_ID:04X}")
-    logger.info(" [+] Packet Size    : 16 bytes (Compact binary)")
+    logger.info(" [+] Telemetry Rate  : 1.0s (1Hz)")
+    logger.info(" [+] Protocol        : Bluetooth Low Energy (Connected GATT)")
+    logger.info(f" [+] Service UUID    : {SERVICE_UUID_STR}")
+    logger.info(f" [+] Char UUID       : {CHARACTERISTIC_UUID_STR}")
+    logger.info(" [+] Packet Size     : 16 bytes (Compact binary)")
     logger.info("--------------------------------------------------------")
 
-    publisher = None
-    if WINRT_AVAILABLE:
-        try:
-            publisher = adv.BluetoothLEAdvertisementPublisher()
-            def on_status_changed(sender, args):
-                logger.info(f"[BLE Status Changed] status={args.status}, error={args.error}")
-            publisher.add_status_changed(on_status_changed)
-            logger.info(f"[+] Windows BLE Publisher initialized for Company ID 0x{COMPANY_ID:04X} (Compact 16B beacon)")
-        except Exception as e:
-            logger.error(f"[-] Could not initialize BLE Publisher: {e}")
+    if not WINRT_AVAILABLE:
+        logger.error("WinRT Bluetooth GATT library is required to run the server.")
+        return
 
+    # 1. Create GATT Service Provider
+    provider_res = await gap.GattServiceProvider.create_async(SERVICE_UUID)
+    if provider_res.error != 0:
+        logger.error(f"[-] Could not create GattServiceProvider (error code {provider_res.error})")
+        return
+    provider = provider_res.service_provider
+
+    # 2. Configure Local Characteristic with NOTIFY & READ properties
+    char_params = gap.GattLocalCharacteristicParameters()
+    char_params.characteristic_properties = (
+        gap.GattCharacteristicProperties.NOTIFY |
+        gap.GattCharacteristicProperties.READ
+    )
+    char_params.read_protection_level = gap.GattProtectionLevel.PLAIN
+
+    char_res = await provider.service.create_characteristic_async(CHARACTERISTIC_UUID, char_params)
+    if char_res.error != 0:
+        logger.error(f"[-] Could not create GATT Characteristic (error code {char_res.error})")
+        return
+    characteristic = char_res.characteristic
+
+    # 3. Add listener for client subscription changes
+    def on_subscribers_changed(sender, args):
+        clients = sender.subscribed_clients
+        logger.info(f"[+] Client subscription state changed: {len(clients)} client(s) currently subscribed.")
+    characteristic.add_subscribed_clients_changed(on_subscribers_changed)
+
+    # 4. Handle Read Requests (Fallback if client reads directly)
+    def on_read_requested(sender, args):
+        deferral = args.get_deferral()
+        try:
+            req_op = args.get_request_async()
+            # Respond with immediate telemetry
+            packet, *_ = encode_telemetry_packet()
+            writer = streams.DataWriter()
+            writer.write_bytes(packet)
+            req = req_op.get()
+            req.respond_with_value(writer.detach_buffer())
+        except Exception as err:
+            logger.warning(f"Error handling read request: {err}")
+        finally:
+            deferral.complete()
+    characteristic.add_read_requested(on_read_requested)
+
+    # 5. Start Advertising Service
+    adv_params = gap.GattServiceProviderAdvertisingParameters()
+    adv_params.is_connectable = True
+    adv_params.is_discoverable = True
+    provider.start_advertising(adv_params)
+    logger.info(f"[+] PC GATT Server is advertising. Waiting for Galaxy Watch 4 to connect...")
+
+    # Prime psutil CPU percent calculation
     psutil.cpu_percent(interval=None)
 
-    while True:
-        try:
+    try:
+        while True:
             packet, gpu_t, cpu_t, gpu_u, cpu_u, pwr, ram_u, ram_tot = encode_telemetry_packet()
 
-            # Broadcast over Windows BLE
-            if publisher:
-                try:
-                    # Windows locks the advertisement payload while STARTED.
-                    # We must stop, update the manufacturer payload, and restart so the radio transmits the new frame.
-                    if publisher.status == adv.BluetoothLEAdvertisementPublisherStatus.STARTED:
-                        publisher.stop()
-                        for _ in range(15):
-                            if publisher.status == adv.BluetoothLEAdvertisementPublisherStatus.STOPPED:
-                                break
-                            await asyncio.sleep(0.02)
+            # Push notification to all subscribed clients
+            writer = streams.DataWriter()
+            writer.write_bytes(packet)
+            notify_buf = writer.detach_buffer()
 
-                    # Update manufacturer data payload
-                    writer = streams.DataWriter()
-                    writer.write_bytes(packet)
-                    mfg_data = adv.BluetoothLEManufacturerData(COMPANY_ID, writer.detach_buffer())
-
-                    publisher.advertisement.manufacturer_data.clear()
-                    publisher.advertisement.manufacturer_data.append(mfg_data)
-
-                    publisher.start()
-                except Exception as ble_err:
-                    logger.warning(f"BLE Broadcast tick error: {ble_err}")
+            try:
+                res = await characteristic.notify_value_async(notify_buf)
+                sub_count = len(characteristic.subscribed_clients)
+            except Exception as notify_err:
+                logger.warning(f"Notification error: {notify_err}")
+                sub_count = 0
 
             now_ist = datetime.now(IST).strftime("%H:%M:%S")
             logger.info(
-                f"[{now_ist} IST] 1Hz Broadcast: GPU {gpu_t}°C ({gpu_u}%) {pwr}W | "
-                f"CPU {cpu_t}°C ({cpu_u}%) | RAM {ram_u // 1024}G/{ram_tot // 1024}G | 16B BLE sent"
+                f"[{now_ist} IST] 1Hz GATT Stream ({sub_count} watch subscriber(s)): "
+                f"GPU {gpu_t}°C ({gpu_u}%) {pwr}W | "
+                f"CPU {cpu_t}°C ({cpu_u}%) | RAM {ram_u // 1024}G/{ram_tot // 1024}G"
             )
-        except Exception as e:
-            logger.error(f"Error in telemetry broadcast loop: {e}")
 
-        await asyncio.sleep(1.0)
+            await asyncio.sleep(1.0)
+    except asyncio.CancelledError:
+        pass
+    finally:
+        logger.info("Stopping GATT advertising...")
+        provider.stop_advertising()
 
 if __name__ == "__main__":
     try:
-        asyncio.run(run_ble_server())
+        asyncio.run(run_gatt_server())
     except KeyboardInterrupt:
-        logger.info("BLE Server stopped by user.")
+        logger.info("BLE GATT Server stopped by user.")

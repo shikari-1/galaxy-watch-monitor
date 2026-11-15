@@ -20,8 +20,18 @@ import java.nio.ByteOrder
 import java.util.*
 
 /**
- * High-performance Bluetooth Low Energy (BLE) Client Manager.
- * Scans for the PC GATT Server and decodes the 16-byte 1Hz binary telemetry packet.
+ * BLE GATT Client Manager for Galaxy Watch 4.
+ *
+ * Connects to the PC's GATT Server hosting the telemetry service,
+ * subscribes to CCCD notifications, and receives 16-byte binary
+ * telemetry packets at 1Hz over a persistent BLE connection.
+ *
+ * Flow:
+ *   1. Scan for the PC advertising SERVICE_UUID
+ *   2. Stop scan, connect via connectGatt(TRANSPORT_LE)
+ *   3. Discover services, subscribe to CHARACTERISTIC_UUID via CCCD
+ *   4. Receive onCharacteristicChanged() every ~1000ms
+ *   5. On disconnect, re-scan after a short backoff
  */
 @SuppressLint("MissingPermission")
 class BleClientManager(private val context: Context) {
@@ -29,80 +39,113 @@ class BleClientManager(private val context: Context) {
     companion object {
         private const val TAG = "BleClientManager"
 
-        // Custom 128-bit UUID for PC Hardware Monitor Telemetry Service
+        // Must match the PC GATT Server UUIDs
         val SERVICE_UUID: UUID = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb")
         val CHARACTERISTIC_UUID: UUID = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
         val CLIENT_CONFIG_DESCRIPTOR: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
         private const val STALE_TIMEOUT_MS = 4500L
+        private const val SCAN_TIMEOUT_MS = 30000L
+        private const val RECONNECT_DELAY_MS = 3000L
     }
 
-    private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    private val bluetoothManager =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter = bluetoothManager.adapter
     private var bluetoothGatt: BluetoothGatt? = null
     private var isScanning = false
+    private var isStopped = false
 
     private val _telemetryState = MutableStateFlow(HardwareTelemetry())
     val telemetryState: StateFlow<HardwareTelemetry> = _telemetryState.asStateFlow()
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // Watchdog to mark telemetry offline if BLE packet stops arriving
+    // Watchdog: marks telemetry offline if no packet arrives within STALE_TIMEOUT_MS
     private val livenessWatchdog = object : Runnable {
         override fun run() {
+            if (isStopped) return
             val lastUpdate = _telemetryState.value.lastUpdateTimestamp
             val now = System.currentTimeMillis()
             if (lastUpdate > 0 && (now - lastUpdate > STALE_TIMEOUT_MS)) {
                 if (_telemetryState.value.isOnline) {
+                    Log.w(TAG, "Telemetry stale (>${STALE_TIMEOUT_MS}ms). Marking offline.")
                     _telemetryState.value = _telemetryState.value.copy(isOnline = false)
                 }
-            } else if (!isScanning && bluetoothGatt == null) {
-                startScan()
+                // If we lost connection without getting a disconnect callback, try reconnecting
+                if (bluetoothGatt == null && !isScanning) {
+                    Log.i(TAG, "No active connection or scan. Restarting scan...")
+                    startScan()
+                }
             }
-            handler.postDelayed(this, 1000)
+            handler.postDelayed(this, 2000)
         }
     }
 
-    init {
-        handler.post(livenessWatchdog)
+    // Safety: stop scanning after SCAN_TIMEOUT_MS to comply with Android scan limits
+    private val scanTimeoutRunnable = Runnable {
+        if (isScanning) {
+            Log.w(TAG, "Scan timeout reached (${SCAN_TIMEOUT_MS}ms). Stopping scan, will retry.")
+            stopScan()
+            // Retry after a brief pause to avoid Android's 5-scans-in-30s throttle
+            handler.postDelayed({ startScan() }, RECONNECT_DELAY_MS)
+        }
     }
 
     fun start() {
+        isStopped = false
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
             Log.w(TAG, "Bluetooth not available or disabled")
             return
         }
+        handler.post(livenessWatchdog)
         startScan()
     }
 
     fun stop() {
-        stopScan()
-        bluetoothGatt?.close()
-        bluetoothGatt = null
+        isStopped = true
         handler.removeCallbacks(livenessWatchdog)
+        handler.removeCallbacks(scanTimeoutRunnable)
+        stopScan()
+        bluetoothGatt?.let { gatt ->
+            gatt.disconnect()
+            gatt.close()
+        }
+        bluetoothGatt = null
     }
 
+    // ─── SCANNING ───────────────────────────────────────────────
+
     private fun startScan() {
-        if (isScanning || bluetoothGatt != null) return
+        if (isStopped || isScanning || bluetoothGatt != null) return
         val scanner = bluetoothAdapter.bluetoothLeScanner ?: return
 
         isScanning = true
-        Log.i(TAG, "Scanning for PC Hardware Monitor BLE Service...")
+        Log.i(TAG, "Scanning for PC GATT Server (Service UUID: $SERVICE_UUID)...")
 
+        // Filter specifically for our Service UUID — eliminates all unrelated BLE traffic
+        val filter = ScanFilter.Builder()
+            .setServiceUuid(ParcelUuid(SERVICE_UUID))
+            .build()
+
+        // Use LOW_LATENCY for fast initial discovery, then stop scan once connected
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
             .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-            .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
+            .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
             .setReportDelay(0)
             .build()
 
-        val emptyFilter = ScanFilter.Builder().build()
-        scanner.startScan(listOf(emptyFilter), settings, scanCallback)
+        scanner.startScan(listOf(filter), settings, scanCallback)
+
+        // Safety timeout to avoid indefinite scanning
+        handler.postDelayed(scanTimeoutRunnable, SCAN_TIMEOUT_MS)
     }
 
     private fun stopScan() {
         if (!isScanning) return
+        handler.removeCallbacks(scanTimeoutRunnable)
         val scanner = bluetoothAdapter.bluetoothLeScanner
         try {
             scanner?.stopScan(scanCallback)
@@ -112,63 +155,115 @@ class BleClientManager(private val context: Context) {
         isScanning = false
     }
 
+    // ─── SCAN CALLBACK ──────────────────────────────────────────
+
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val record = result.scanRecord ?: return
+            val device = result.device ?: return
+            Log.i(TAG, "Found PC GATT Server: ${device.address} (RSSI: ${result.rssi})")
 
-            // 1. Direct Manufacturer Data Reception (Company ID 0x05F9)
-            val mfgBytes = record.getManufacturerSpecificData(0x05F9)
-            if (mfgBytes != null && mfgBytes.size >= 15) {
-                decodeTelemetry(mfgBytes)
-                return
-            }
+            // Immediately stop scanning to save power and avoid Android throttle limits
+            stopScan()
 
-            // 2. Direct Service Data Reception
-            val serviceData = record.getServiceData(ParcelUuid(SERVICE_UUID))
-            if (serviceData != null && serviceData.size >= 15) {
-                decodeTelemetry(serviceData)
-                return
-            }
+            // Connect directly via TRANSPORT_LE (no Classic Bluetooth fallback)
+            connectToDevice(device)
         }
 
         override fun onScanFailed(errorCode: Int) {
             Log.e(TAG, "BLE scan failed with error code $errorCode")
             isScanning = false
-            handler.postDelayed({ startScan() }, 3000)
+            handler.removeCallbacks(scanTimeoutRunnable)
+            // Retry after backoff
+            if (!isStopped) {
+                handler.postDelayed({ startScan() }, RECONNECT_DELAY_MS)
+            }
         }
     }
 
-    private val gattCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.i(TAG, "Connected to PC BLE Server. Discovering services...")
-                gatt.discoverServices()
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.w(TAG, "Disconnected from PC. Re-scanning...")
-                gatt.close()
-                bluetoothGatt = null
-                _telemetryState.value = _telemetryState.value.copy(isOnline = false)
-                handler.postDelayed({ startScan() }, 2000)
-            }
-        }
+    // ─── GATT CONNECTION ────────────────────────────────────────
 
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                val service = gatt.getService(SERVICE_UUID)
-                val characteristic = service?.getCharacteristic(CHARACTERISTIC_UUID)
-                if (characteristic != null) {
-                    gatt.setCharacteristicNotification(characteristic, true)
-                    val descriptor = characteristic.getDescriptor(CLIENT_CONFIG_DESCRIPTOR)
-                    if (descriptor != null) {
-                        descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                        gatt.writeDescriptor(descriptor)
-                        Log.i(TAG, "Subscribed to 1Hz telemetry notifications!")
+    private fun connectToDevice(device: BluetoothDevice) {
+        Log.i(TAG, "Connecting to PC at ${device.address} via TRANSPORT_LE...")
+        bluetoothGatt = device.connectGatt(
+            context,
+            false,               // autoConnect=false for immediate connection attempt
+            gattCallback,
+            BluetoothDevice.TRANSPORT_LE
+        )
+    }
+
+    private val gattCallback = object : BluetoothGattCallback() {
+
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            when (newState) {
+                BluetoothProfile.STATE_CONNECTED -> {
+                    Log.i(TAG, "Connected to PC GATT Server. Discovering services...")
+                    gatt.discoverServices()
+                }
+                BluetoothProfile.STATE_DISCONNECTED -> {
+                    Log.w(TAG, "Disconnected from PC (status=$status). Cleaning up...")
+                    gatt.close()
+                    bluetoothGatt = null
+                    _telemetryState.value = _telemetryState.value.copy(isOnline = false)
+
+                    // Auto-reconnect after backoff
+                    if (!isStopped) {
+                        Log.i(TAG, "Will re-scan in ${RECONNECT_DELAY_MS}ms...")
+                        handler.postDelayed({ startScan() }, RECONNECT_DELAY_MS)
                     }
                 }
             }
         }
 
-        @Deprecated("Deprecated in Java")
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                Log.e(TAG, "Service discovery failed with status $status")
+                return
+            }
+
+            val service = gatt.getService(SERVICE_UUID)
+            if (service == null) {
+                Log.e(TAG, "Telemetry service $SERVICE_UUID not found on PC!")
+                return
+            }
+
+            val characteristic = service.getCharacteristic(CHARACTERISTIC_UUID)
+            if (characteristic == null) {
+                Log.e(TAG, "Telemetry characteristic $CHARACTERISTIC_UUID not found!")
+                return
+            }
+
+            // Step 1: Enable local notification routing in Android BLE stack
+            val enabled = gatt.setCharacteristicNotification(characteristic, true)
+            Log.i(TAG, "setCharacteristicNotification: $enabled")
+
+            // Step 2: Write to the CCCD descriptor on the PC to start server-side notifications
+            val descriptor = characteristic.getDescriptor(CLIENT_CONFIG_DESCRIPTOR)
+            if (descriptor != null) {
+                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                val written = gatt.writeDescriptor(descriptor)
+                Log.i(TAG, "CCCD writeDescriptor: $written — subscribed to 1Hz telemetry!")
+            } else {
+                Log.w(TAG, "CCCD descriptor not found. Notifications may still work via local routing.")
+            }
+        }
+
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt,
+            descriptor: BluetoothGattDescriptor,
+            status: Int
+        ) {
+            if (descriptor.uuid == CLIENT_CONFIG_DESCRIPTOR) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Log.i(TAG, "CCCD write confirmed. 1Hz notification stream is now active!")
+                } else {
+                    Log.e(TAG, "CCCD write failed with status $status")
+                }
+            }
+        }
+
+        // Called every ~1000ms when the PC pushes a new telemetry notification
+        @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
@@ -180,12 +275,14 @@ class BleClientManager(private val context: Context) {
         }
     }
 
+    // ─── TELEMETRY DECODER ──────────────────────────────────────
+
     /**
      * Decodes 16-byte raw binary telemetry packet:
      * [0] gpuTemp, [1] cpuTemp, [2] gpuUsage, [3] cpuUsage
      * [4-5] vramUsedMb, [6-7] vramTotalMb
      * [8-9] ramUsedMb, [10-11] ramTotalMb
-     * [12] gpuPowerW, [13] istHour, [14] istMinute, [15] flags
+     * [12] gpuPowerW, [13] istHour, [14] istMinute, [15] istSecond
      */
     private fun decodeTelemetry(bytes: ByteArray) {
         if (bytes.size < 15) return
@@ -228,7 +325,7 @@ class BleClientManager(private val context: Context) {
             lastUpdateTimestamp = System.currentTimeMillis()
         )
 
-        Log.i(TAG, "[PACKET DECODED] Time: %02d:%02d:%02d | GPU: %d°C (%d%%) | CPU: %d°C (%d%%)".format(
+        Log.i(TAG, "[1Hz GATT] %02d:%02d:%02d | GPU: %d°C (%d%%) | CPU: %d°C (%d%%)".format(
             istHour, istMinute, istSecond, gpuTemp, gpuUsage, cpuTemp, cpuUsage
         ))
     }

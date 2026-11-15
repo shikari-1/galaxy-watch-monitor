@@ -47,6 +47,12 @@
             </intent-filter>
         </activity>
 
+        <!-- BLE GATT Connection Foreground Service -->
+        <service
+            android:name=".ble.BleConnectionService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+
         <!-- Auto-launch receiver when placed on magnetic desk charger -->
         <receiver
             android:name=".receiver.ChargerReceiver"
