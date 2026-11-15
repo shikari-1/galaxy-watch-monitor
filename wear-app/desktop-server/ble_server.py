@@ -15,6 +15,7 @@ import asyncio
 import logging
 import subprocess
 import uuid
+import ctypes
 from datetime import datetime, timezone, timedelta
 
 # Logging setup
@@ -24,6 +25,38 @@ logging.basicConfig(
     datefmt="%H:%M:%S"
 )
 logger = logging.getLogger("BleGattServer")
+
+def check_and_request_admin():
+    """If not running as Administrator, prompt Windows UAC and re-launch elevated."""
+    if os.name != 'nt':
+        return True
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+    except Exception:
+        is_admin = False
+
+    if not is_admin:
+        if "--no-elevation" in sys.argv:
+            return False
+        logger.info("[*] Administrator privileges required for AMD hardware sensors.")
+        logger.info("[*] Prompting Windows UAC for elevation...")
+        params = " ".join([f'"{arg}"' for arg in sys.argv])
+        # ShellExecuteW with verb 'runas' prompts Windows UAC dialog
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "runas",
+            sys.executable,
+            params,
+            None,
+            1  # SW_SHOWNORMAL
+        )
+        if ret > 32:
+            # Elevated process successfully started; exit this un-elevated launcher
+            sys.exit(0)
+        else:
+            logger.warning("[!] UAC elevation was declined by user. Running with limited permissions.")
+            return False
+    return True
 
 try:
     import psutil
@@ -97,8 +130,12 @@ def ensure_hardware_monitor():
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         lhm_exe = os.path.join(project_root, "tools", "librehardwaremonitor", "LibreHardwareMonitor.exe")
         if os.path.exists(lhm_exe):
-            logger.info(f"[+] Starting LibreHardwareMonitor from {lhm_exe}...")
-            os.startfile(lhm_exe)
+            logger.info(f"[+] Launching LibreHardwareMonitor from {lhm_exe}...")
+            subprocess.Popen(
+                [lhm_exe],
+                cwd=os.path.dirname(lhm_exe),
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
     except Exception as e:
         logger.debug(f"Could not auto-start LibreHardwareMonitor: {e}")
 
@@ -302,6 +339,7 @@ async def run_gatt_server():
         provider.stop_advertising()
 
 if __name__ == "__main__":
+    check_and_request_admin()
     try:
         asyncio.run(run_gatt_server())
     except KeyboardInterrupt:
