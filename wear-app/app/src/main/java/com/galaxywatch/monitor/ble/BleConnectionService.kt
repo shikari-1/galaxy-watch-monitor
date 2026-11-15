@@ -12,7 +12,9 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.galaxywatch.monitor.data.HardwareTelemetry
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Foreground Service (type: connectedDevice) that keeps the BLE GATT
@@ -20,10 +22,6 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Holds a PARTIAL_WAKE_LOCK so the CPU stays awake to process incoming
  * GATT notifications without requiring the AMOLED display to stay on.
- *
- * Lifecycle:
- *   - Started by ChargerReceiver (ACTION_POWER_CONNECTED) or MainActivity
- *   - Runs until explicitly stopped or the watch is taken off the charger
  */
 class BleConnectionService : Service() {
 
@@ -33,7 +31,14 @@ class BleConnectionService : Service() {
         private const val NOTIFICATION_ID = 991
         const val ACTION_STOP = "com.galaxywatch.monitor.STOP_BLE_SERVICE"
 
-        // Shared BleClientManager instance accessible by MainActivity for UI binding
+        // Singleton StateFlow guaranteed to be non-null and persistent for MainActivity UI binding
+        private val _telemetryState = MutableStateFlow(HardwareTelemetry())
+        val telemetryState: StateFlow<HardwareTelemetry> = _telemetryState.asStateFlow()
+
+        fun updateTelemetry(telemetry: HardwareTelemetry) {
+            _telemetryState.value = telemetry
+        }
+
         var bleManager: BleClientManager? = null
             private set
     }
@@ -78,7 +83,7 @@ class BleConnectionService : Service() {
             Log.i(TAG, "PARTIAL_WAKE_LOCK acquired")
         }
 
-        // 3. Initialize BLE client and start connection
+        // 3. Initialize or restart BLE client
         if (bleManager == null) {
             bleManager = BleClientManager(applicationContext)
         }

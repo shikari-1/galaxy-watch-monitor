@@ -12,11 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
-import com.galaxywatch.monitor.ble.BleClientManager
 import com.galaxywatch.monitor.ble.BleConnectionService
-import com.galaxywatch.monitor.data.HardwareTelemetry
 import com.galaxywatch.monitor.ui.DualArcHudScreen
-import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
 
@@ -38,10 +35,8 @@ class MainActivity : ComponentActivity() {
         checkAndRequestPermissions()
 
         setContent {
-            // Bind to the service's shared BleClientManager for live telemetry
-            val manager = BleConnectionService.bleManager
-            val telemetry by (manager?.telemetryState ?: MutableStateFlow(HardwareTelemetry()))
-                .collectAsState()
+            // Bind directly to the singleton StateFlow in BleConnectionService
+            val telemetry by BleConnectionService.telemetryState.collectAsState()
             DualArcHudScreen(telemetry = telemetry)
         }
     }
@@ -72,7 +67,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Ensure the service is running when the Activity comes to front
         if (hasBluetoothPermissions()) {
             startBleService()
         }
@@ -85,9 +79,4 @@ class MainActivity : ComponentActivity() {
         }
         return true
     }
-
-    // NOTE: We intentionally do NOT stop the service in onDestroy().
-    // The Foreground Service keeps the BLE connection alive independently
-    // of the Activity lifecycle. The service stops when the watch is
-    // taken off the charger or via explicit ACTION_STOP.
 }

@@ -25,13 +25,6 @@ import java.util.*
  * Connects to the PC's GATT Server hosting the telemetry service,
  * subscribes to CCCD notifications, and receives 16-byte binary
  * telemetry packets at 1Hz over a persistent BLE connection.
- *
- * Flow:
- *   1. Scan for the PC advertising SERVICE_UUID
- *   2. Stop scan, connect via connectGatt(TRANSPORT_LE)
- *   3. Discover services, subscribe to CHARACTERISTIC_UUID via CCCD
- *   4. Receive onCharacteristicChanged() every ~1000ms
- *   5. On disconnect, re-scan after a short backoff
  */
 @SuppressLint("MissingPermission")
 class BleClientManager(private val context: Context) {
@@ -39,14 +32,13 @@ class BleClientManager(private val context: Context) {
     companion object {
         private const val TAG = "BleClientManager"
 
-        // Must match the PC GATT Server UUIDs
         val SERVICE_UUID: UUID = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb")
         val CHARACTERISTIC_UUID: UUID = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb")
         val CLIENT_CONFIG_DESCRIPTOR: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
         private const val STALE_TIMEOUT_MS = 4500L
         private const val SCAN_TIMEOUT_MS = 30000L
-        private const val RECONNECT_DELAY_MS = 3000L
+        private const val RECONNECT_DELAY_MS = 2500L
     }
 
     private val bluetoothManager =
@@ -70,11 +62,25 @@ class BleClientManager(private val context: Context) {
             if (lastUpdate > 0 && (now - lastUpdate > STALE_TIMEOUT_MS)) {
                 if (_telemetryState.value.isOnline) {
                     Log.w(TAG, "Telemetry stale (>${STALE_TIMEOUT_MS}ms). Marking offline.")
-                    _telemetryState.value = _telemetryState.value.copy(isOnline = false)
+                    val offline = _telemetryState.value.copy(isOnline = false)
+                    _telemetryState.value = offline
+                    BleConnectionService.updateTelemetry(offline)
                 }
-                // If we lost connection without getting a disconnect callback, try reconnecting
-                if (bluetoothGatt == null && !isScanning) {
-                    Log.i(TAG, "No active connection or scan. Restarting scan...")
+
+                // If connection is dead/zombie, clean it up completely so scan can resume
+                if (bluetoothGatt != null) {
+                    Log.w(TAG, "Cleaning up zombie GATT connection...")
+                    try {
+                        bluetoothGatt?.disconnect()
+                        bluetoothGatt?.close()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error closing zombie GATT: ${e.message}")
+                    }
+                    bluetoothGatt = null
+                }
+
+                if (!isScanning) {
+                    Log.i(TAG, "Restarting scan for PC server...")
                     startScan()
                 }
             }
@@ -82,12 +88,10 @@ class BleClientManager(private val context: Context) {
         }
     }
 
-    // Safety: stop scanning after SCAN_TIMEOUT_MS to comply with Android scan limits
     private val scanTimeoutRunnable = Runnable {
         if (isScanning) {
-            Log.w(TAG, "Scan timeout reached (${SCAN_TIMEOUT_MS}ms). Stopping scan, will retry.")
+            Log.w(TAG, "Scan timeout reached (${SCAN_TIMEOUT_MS}ms). Pausing scan before retry.")
             stopScan()
-            // Retry after a brief pause to avoid Android's 5-scans-in-30s throttle
             handler.postDelayed({ startScan() }, RECONNECT_DELAY_MS)
         }
     }
@@ -98,6 +102,17 @@ class BleClientManager(private val context: Context) {
             Log.w(TAG, "Bluetooth not available or disabled")
             return
         }
+
+        // Clean up any lingering dead GATT handle from previous sessions
+        if (bluetoothGatt != null && !_telemetryState.value.isOnline) {
+            try {
+                bluetoothGatt?.disconnect()
+                bluetoothGatt?.close()
+            } catch (e: Exception) {}
+            bluetoothGatt = null
+        }
+
+        handler.removeCallbacks(livenessWatchdog)
         handler.post(livenessWatchdog)
         startScan()
     }
@@ -108,8 +123,10 @@ class BleClientManager(private val context: Context) {
         handler.removeCallbacks(scanTimeoutRunnable)
         stopScan()
         bluetoothGatt?.let { gatt ->
-            gatt.disconnect()
-            gatt.close()
+            try {
+                gatt.disconnect()
+                gatt.close()
+            } catch (e: Exception) {}
         }
         bluetoothGatt = null
     }
@@ -123,12 +140,10 @@ class BleClientManager(private val context: Context) {
         isScanning = true
         Log.i(TAG, "Scanning for PC GATT Server (Service UUID: $SERVICE_UUID)...")
 
-        // Filter specifically for our Service UUID — eliminates all unrelated BLE traffic
         val filter = ScanFilter.Builder()
             .setServiceUuid(ParcelUuid(SERVICE_UUID))
             .build()
 
-        // Use LOW_LATENCY for fast initial discovery, then stop scan once connected
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
@@ -138,8 +153,6 @@ class BleClientManager(private val context: Context) {
             .build()
 
         scanner.startScan(listOf(filter), settings, scanCallback)
-
-        // Safety timeout to avoid indefinite scanning
         handler.postDelayed(scanTimeoutRunnable, SCAN_TIMEOUT_MS)
     }
 
@@ -161,11 +174,7 @@ class BleClientManager(private val context: Context) {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device ?: return
             Log.i(TAG, "Found PC GATT Server: ${device.address} (RSSI: ${result.rssi})")
-
-            // Immediately stop scanning to save power and avoid Android throttle limits
             stopScan()
-
-            // Connect directly via TRANSPORT_LE (no Classic Bluetooth fallback)
             connectToDevice(device)
         }
 
@@ -173,7 +182,6 @@ class BleClientManager(private val context: Context) {
             Log.e(TAG, "BLE scan failed with error code $errorCode")
             isScanning = false
             handler.removeCallbacks(scanTimeoutRunnable)
-            // Retry after backoff
             if (!isStopped) {
                 handler.postDelayed({ startScan() }, RECONNECT_DELAY_MS)
             }
@@ -186,7 +194,7 @@ class BleClientManager(private val context: Context) {
         Log.i(TAG, "Connecting to PC at ${device.address} via TRANSPORT_LE...")
         bluetoothGatt = device.connectGatt(
             context,
-            false,               // autoConnect=false for immediate connection attempt
+            false,
             gattCallback,
             BluetoothDevice.TRANSPORT_LE
         )
@@ -202,11 +210,14 @@ class BleClientManager(private val context: Context) {
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     Log.w(TAG, "Disconnected from PC (status=$status). Cleaning up...")
-                    gatt.close()
+                    try {
+                        gatt.close()
+                    } catch (e: Exception) {}
                     bluetoothGatt = null
-                    _telemetryState.value = _telemetryState.value.copy(isOnline = false)
+                    val offline = _telemetryState.value.copy(isOnline = false)
+                    _telemetryState.value = offline
+                    BleConnectionService.updateTelemetry(offline)
 
-                    // Auto-reconnect after backoff
                     if (!isStopped) {
                         Log.i(TAG, "Will re-scan in ${RECONNECT_DELAY_MS}ms...")
                         handler.postDelayed({ startScan() }, RECONNECT_DELAY_MS)
@@ -233,18 +244,14 @@ class BleClientManager(private val context: Context) {
                 return
             }
 
-            // Step 1: Enable local notification routing in Android BLE stack
             val enabled = gatt.setCharacteristicNotification(characteristic, true)
             Log.i(TAG, "setCharacteristicNotification: $enabled")
 
-            // Step 2: Write to the CCCD descriptor on the PC to start server-side notifications
             val descriptor = characteristic.getDescriptor(CLIENT_CONFIG_DESCRIPTOR)
             if (descriptor != null) {
                 descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                 val written = gatt.writeDescriptor(descriptor)
                 Log.i(TAG, "CCCD writeDescriptor: $written — subscribed to 1Hz telemetry!")
-            } else {
-                Log.w(TAG, "CCCD descriptor not found. Notifications may still work via local routing.")
             }
         }
 
@@ -262,7 +269,6 @@ class BleClientManager(private val context: Context) {
             }
         }
 
-        // Called every ~1000ms when the PC pushes a new telemetry notification
         @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
@@ -277,13 +283,6 @@ class BleClientManager(private val context: Context) {
 
     // ─── TELEMETRY DECODER ──────────────────────────────────────
 
-    /**
-     * Decodes 16-byte raw binary telemetry packet:
-     * [0] gpuTemp, [1] cpuTemp, [2] gpuUsage, [3] cpuUsage
-     * [4-5] vramUsedMb, [6-7] vramTotalMb
-     * [8-9] ramUsedMb, [10-11] ramTotalMb
-     * [12] gpuPowerW, [13] istHour, [14] istMinute, [15] istSecond
-     */
     private fun decodeTelemetry(bytes: ByteArray) {
         if (bytes.size < 15) return
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
@@ -306,7 +305,7 @@ class BleClientManager(private val context: Context) {
         val vramPct = if (vramTotalMb > 0) ((vramUsedMb.toFloat() / vramTotalMb) * 100).toInt() else 0
         val ramPct = if (ramTotalMb > 0) ((ramUsedMb.toFloat() / ramTotalMb) * 100).toInt() else 0
 
-        _telemetryState.value = HardwareTelemetry(
+        val telemetry = HardwareTelemetry(
             gpuTemp = gpuTemp,
             cpuTemp = cpuTemp,
             gpuUsage = gpuUsage,
@@ -324,6 +323,9 @@ class BleClientManager(private val context: Context) {
             isOnline = true,
             lastUpdateTimestamp = System.currentTimeMillis()
         )
+
+        _telemetryState.value = telemetry
+        BleConnectionService.updateTelemetry(telemetry)
 
         Log.i(TAG, "[1Hz GATT] %02d:%02d:%02d | GPU: %d°C (%d%%) | CPU: %d°C (%d%%)".format(
             istHour, istMinute, istSecond, gpuTemp, gpuUsage, cpuTemp, cpuUsage
