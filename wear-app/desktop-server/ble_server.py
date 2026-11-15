@@ -15,6 +15,7 @@ import asyncio
 import logging
 import subprocess
 import uuid
+import ctypes
 from datetime import datetime, timezone, timedelta
 
 # Logging setup
@@ -24,6 +25,38 @@ logging.basicConfig(
     datefmt="%H:%M:%S"
 )
 logger = logging.getLogger("BleGattServer")
+
+def check_and_request_admin():
+    """If not running as Administrator, prompt Windows UAC and re-launch elevated."""
+    if os.name != 'nt':
+        return True
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+    except Exception:
+        is_admin = False
+
+    if not is_admin:
+        if "--no-elevation" in sys.argv:
+            return False
+        logger.info("[*] Administrator privileges required for AMD hardware sensors.")
+        logger.info("[*] Prompting Windows UAC for elevation...")
+        params = " ".join([f'"{arg}"' for arg in sys.argv])
+        # ShellExecuteW with verb 'runas' prompts Windows UAC dialog
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "runas",
+            sys.executable,
+            params,
+            None,
+            1  # SW_SHOWNORMAL
+        )
+        if ret > 32:
+            # Elevated process successfully started; exit this un-elevated launcher
+            sys.exit(0)
+        else:
+            logger.warning("[!] UAC elevation was declined by user. Running with limited permissions.")
+            return False
+    return True
 
 try:
     import psutil
@@ -81,18 +114,65 @@ def query_nvidia_smi():
         pass
     return 0, 0, 0, 8192, 0
 
-def get_cpu_temp(cpu_usage):
-    """Calculate thermal reading from sensors or dynamic estimation."""
+_lhm_wmi = None
+
+def ensure_hardware_monitor():
+    """Ensure LibreHardwareMonitor is running in the background without needing a scheduled task."""
     try:
-        import wmi
-        w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
-        sensors = w.Sensor()
-        for s in sensors:
-            if s.SensorType == "Temperature" and ("CPU Package" in s.Name or "Core" in s.Name):
-                return int(float(s.Value))
+        for p in psutil.process_iter(['name']):
+            try:
+                pname = p.info['name']
+                if pname and 'LibreHardwareMonitor' in pname:
+                    return
+            except Exception:
+                pass
+
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        lhm_exe = os.path.join(project_root, "tools", "librehardwaremonitor", "LibreHardwareMonitor.exe")
+        if os.path.exists(lhm_exe):
+            logger.info(f"[+] Launching LibreHardwareMonitor from {lhm_exe}...")
+            subprocess.Popen(
+                [lhm_exe],
+                cwd=os.path.dirname(lhm_exe),
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+    except Exception as e:
+        logger.debug(f"Could not auto-start LibreHardwareMonitor: {e}")
+
+def get_cpu_temp(cpu_usage):
+    """Retrieve genuine CPU silicon temperature via LibreHardwareMonitor WMI, or fallback."""
+    global _lhm_wmi
+    try:
+        if _lhm_wmi is None:
+            import win32com.client
+            locator = win32com.client.Dispatch("WbemScripting.SWbemLocator")
+            for ns in ["root\\LibreHardwareMonitor", "root\\OpenHardwareMonitor"]:
+                try:
+                    _lhm_wmi = locator.ConnectServer(".", ns)
+                    break
+                except Exception:
+                    pass
+
+        if _lhm_wmi is not None:
+            sensors = _lhm_wmi.ExecQuery("SELECT Name, Value FROM Sensor WHERE SensorType = 'Temperature'")
+            # 1. Prioritize true AMD Ryzen Silicon Junction / Package temperature
+            for s in sensors:
+                name = str(s.Name)
+                if "Core (Tctl/Tdie)" in name or "CPU Package" in name:
+                    val = float(s.Value)
+                    if val > 0:
+                        return int(round(val))
+            # 2. Secondary check for individual core readings
+            for s in sensors:
+                name = str(s.Name)
+                if "Core #" in name or "Core" in name:
+                    val = float(s.Value)
+                    if val > 0:
+                        return int(round(val))
     except Exception:
-        pass
-    # Dynamic thermal estimation: idle ~38°C, load up to ~78°C
+        _lhm_wmi = None
+
+    # Dynamic thermal estimation fallback if hardware monitor is starting up
     return int(38.0 + (cpu_usage / 100.0) * 38.0)
 
 def encode_telemetry_packet():
@@ -214,11 +294,22 @@ async def run_gatt_server():
     provider.start_advertising(adv_params)
     logger.info(f"[+] PC GATT Server is advertising. Waiting for Galaxy Watch 4 to connect...")
 
+    # Ensure hardware monitor is running
+    ensure_hardware_monitor()
+
     # Prime psutil CPU percent calculation
     psutil.cpu_percent(interval=None)
 
     try:
         while True:
+            # Hibernation / Sleep Recovery: Check if Windows cycled Bluetooth adapter
+            try:
+                if provider.advertisement_status != gap.GattServiceProviderAdvertisementStatus.STARTED:
+                    logger.warning("[!] BLE advertisement stopped (possible sleep/hibernation wake). Re-starting advertisement...")
+                    provider.start_advertising(adv_params)
+            except Exception as adv_err:
+                logger.warning(f"Error checking/re-starting advertisement: {adv_err}")
+
             packet, gpu_t, cpu_t, gpu_u, cpu_u, pwr, ram_u, ram_tot = encode_telemetry_packet()
 
             # Push notification to all subscribed clients
@@ -248,6 +339,7 @@ async def run_gatt_server():
         provider.stop_advertising()
 
 if __name__ == "__main__":
+    check_and_request_admin()
     try:
         asyncio.run(run_gatt_server())
     except KeyboardInterrupt:
