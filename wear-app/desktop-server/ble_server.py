@@ -227,6 +227,65 @@ def encode_telemetry_packet():
     )
     return packet, gpu_temp, cpu_temp, gpu_usage, cpu_usage, gpu_pwr, ram_used_mb, ram_total_mb
 
+async def create_gatt_provider():
+    """Create and configure a fresh WinRT GATT Service Provider on the active radio."""
+    logger.info("[+] Allocating fresh WinRT GattServiceProvider...")
+    try:
+        provider_res = await gap.GattServiceProvider.create_async(SERVICE_UUID)
+    except Exception as e:
+        logger.error(f"[-] GattServiceProvider.create_async failed: {e}")
+        return None, None, None
+
+    if provider_res.error != 0 or not provider_res.service_provider:
+        logger.error(f"[-] Could not create GattServiceProvider (error code {provider_res.error})")
+        return None, None, None
+
+    provider = provider_res.service_provider
+
+    char_params = gap.GattLocalCharacteristicParameters()
+    char_params.characteristic_properties = (
+        gap.GattCharacteristicProperties.NOTIFY |
+        gap.GattCharacteristicProperties.READ
+    )
+    char_params.read_protection_level = gap.GattProtectionLevel.PLAIN
+
+    char_res = await provider.service.create_characteristic_async(CHARACTERISTIC_UUID, char_params)
+    if char_res.error != 0 or not char_res.characteristic:
+        logger.error(f"[-] Could not create GATT Characteristic (error code {char_res.error})")
+        return None, None, None
+    characteristic = char_res.characteristic
+
+    def on_subscribers_changed(sender, args):
+        clients = sender.subscribed_clients
+        logger.info(f"[+] Client subscription state changed: {len(clients)} client(s) currently subscribed.")
+    characteristic.add_subscribed_clients_changed(on_subscribers_changed)
+
+    def on_read_requested(sender, args):
+        deferral = args.get_deferral()
+        try:
+            req_op = args.get_request_async()
+            packet, *_ = encode_telemetry_packet()
+            writer = streams.DataWriter()
+            writer.write_bytes(packet)
+            req = req_op.get()
+            req.respond_with_value(writer.detach_buffer())
+        except Exception as err:
+            logger.warning(f"Error handling read request: {err}")
+        finally:
+            deferral.complete()
+    characteristic.add_read_requested(on_read_requested)
+
+    adv_params = gap.GattServiceProviderAdvertisingParameters()
+    adv_params.is_connectable = True
+    adv_params.is_discoverable = True
+    try:
+        provider.start_advertising(adv_params)
+        logger.info(f"[+] PC GATT Server is advertising. Waiting for Galaxy Watch 4 to connect...")
+        return provider, characteristic, adv_params
+    except Exception as start_err:
+        logger.error(f"[-] Failed to start advertising: {start_err}")
+        return None, None, None
+
 async def run_gatt_server():
     """Hosts the Windows BLE GATT Server and transmits 1.0s telemetry notifications."""
     logger.info("========================================================")
@@ -243,72 +302,48 @@ async def run_gatt_server():
         logger.error("WinRT Bluetooth GATT library is required to run the server.")
         return
 
-    # 1. Create GATT Service Provider
-    provider_res = await gap.GattServiceProvider.create_async(SERVICE_UUID)
-    if provider_res.error != 0:
-        logger.error(f"[-] Could not create GattServiceProvider (error code {provider_res.error})")
-        return
-    provider = provider_res.service_provider
-
-    # 2. Configure Local Characteristic with NOTIFY & READ properties
-    char_params = gap.GattLocalCharacteristicParameters()
-    char_params.characteristic_properties = (
-        gap.GattCharacteristicProperties.NOTIFY |
-        gap.GattCharacteristicProperties.READ
-    )
-    char_params.read_protection_level = gap.GattProtectionLevel.PLAIN
-
-    char_res = await provider.service.create_characteristic_async(CHARACTERISTIC_UUID, char_params)
-    if char_res.error != 0:
-        logger.error(f"[-] Could not create GATT Characteristic (error code {char_res.error})")
-        return
-    characteristic = char_res.characteristic
-
-    # 3. Add listener for client subscription changes
-    def on_subscribers_changed(sender, args):
-        clients = sender.subscribed_clients
-        logger.info(f"[+] Client subscription state changed: {len(clients)} client(s) currently subscribed.")
-    characteristic.add_subscribed_clients_changed(on_subscribers_changed)
-
-    # 4. Handle Read Requests (Fallback if client reads directly)
-    def on_read_requested(sender, args):
-        deferral = args.get_deferral()
-        try:
-            req_op = args.get_request_async()
-            # Respond with immediate telemetry
-            packet, *_ = encode_telemetry_packet()
-            writer = streams.DataWriter()
-            writer.write_bytes(packet)
-            req = req_op.get()
-            req.respond_with_value(writer.detach_buffer())
-        except Exception as err:
-            logger.warning(f"Error handling read request: {err}")
-        finally:
-            deferral.complete()
-    characteristic.add_read_requested(on_read_requested)
-
-    # 5. Start Advertising Service
-    adv_params = gap.GattServiceProviderAdvertisingParameters()
-    adv_params.is_connectable = True
-    adv_params.is_discoverable = True
-    provider.start_advertising(adv_params)
-    logger.info(f"[+] PC GATT Server is advertising. Waiting for Galaxy Watch 4 to connect...")
-
     # Ensure hardware monitor is running
     ensure_hardware_monitor()
 
     # Prime psutil CPU percent calculation
     psutil.cpu_percent(interval=None)
 
+    # Initial provider creation
+    provider, characteristic, adv_params = await create_gatt_provider()
+
     try:
         while True:
-            # Hibernation / Sleep Recovery: Check if Windows cycled Bluetooth adapter
-            try:
-                if provider.advertisement_status != gap.GattServiceProviderAdvertisementStatus.STARTED:
-                    logger.warning("[!] BLE advertisement stopped (possible sleep/hibernation wake). Re-starting advertisement...")
-                    provider.start_advertising(adv_params)
-            except Exception as adv_err:
-                logger.warning(f"Error checking/re-starting advertisement: {adv_err}")
+            # Hibernation / Sleep Recovery:
+            # If the Bluetooth adapter was powered down/reset during hibernation,
+            # provider.advertisement_status throws or changes. Recreate from scratch.
+            needs_rebuild = False
+            if provider is None or characteristic is None:
+                needs_rebuild = True
+            else:
+                try:
+                    status = provider.advertisement_status
+                    if status != gap.GattServiceProviderAdvertisementStatus.STARTED:
+                        logger.warning(f"[!] BLE advertisement status is {status} (system sleep/wake detected).")
+                        needs_rebuild = True
+                except Exception as status_err:
+                    logger.warning(f"[!] Error querying advertisement status: {status_err}.")
+                    needs_rebuild = True
+
+            if needs_rebuild:
+                if provider is not None:
+                    try:
+                        provider.stop_advertising()
+                    except Exception:
+                        pass
+                    provider = None
+                    characteristic = None
+
+                logger.info("[*] Rebuilding GATT provider on awakened Bluetooth radio...")
+                provider, characteristic, adv_params = await create_gatt_provider()
+                if not provider:
+                    logger.warning("[-] Could not rebuild GATT provider yet (radio waking up). Retrying in 2s...")
+                    await asyncio.sleep(2.0)
+                    continue
 
             packet, gpu_t, cpu_t, gpu_u, cpu_u, pwr, ram_u, ram_tot = encode_telemetry_packet()
 
@@ -323,6 +358,11 @@ async def run_gatt_server():
             except Exception as notify_err:
                 logger.warning(f"Notification error: {notify_err}")
                 sub_count = 0
+                err_str = str(notify_err).lower()
+                if "unexpected" in err_str or "closed" in err_str:
+                    logger.warning("[!] Radio invalidated during notification. Recreating provider on next tick...")
+                    provider = None
+                    characteristic = None
 
             now_ist = datetime.now(IST).strftime("%H:%M:%S")
             logger.info(
@@ -335,8 +375,12 @@ async def run_gatt_server():
     except asyncio.CancelledError:
         pass
     finally:
-        logger.info("Stopping GATT advertising...")
-        provider.stop_advertising()
+        if provider is not None:
+            logger.info("Stopping GATT advertising...")
+            try:
+                provider.stop_advertising()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     check_and_request_admin()
