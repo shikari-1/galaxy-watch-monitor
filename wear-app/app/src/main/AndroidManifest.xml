@@ -13,8 +13,9 @@
         android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <!-- Display & Charger Wake Permissions -->
+    <!-- Display, Boot & Charger Wake Permissions -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 
@@ -40,6 +41,8 @@
             android:label="Hardware Monitor"
             android:launchMode="singleTask"
             android:taskAffinity=""
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -53,12 +56,16 @@
             android:foregroundServiceType="connectedDevice"
             android:exported="false" />
 
-        <!-- Auto-launch receiver when placed on magnetic desk charger -->
+        <!-- Auto-launch receiver when placed on magnetic desk charger or watch restarts -->
         <receiver
             android:name=".receiver.ChargerReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:enabled="true">
             <intent-filter>
                 <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 
