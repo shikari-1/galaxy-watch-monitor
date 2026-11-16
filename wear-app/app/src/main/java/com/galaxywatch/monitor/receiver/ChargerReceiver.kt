@@ -10,25 +10,45 @@ import com.galaxywatch.monitor.ble.BleConnectionService
 
 /**
  * BroadcastReceiver that auto-launches the Hardware Monitor
- * as soon as the Galaxy Watch is placed on its desk magnetic charger.
+ * when the Galaxy Watch is placed on its magnetic charger puck
+ * or when the watch restarts / boots up.
  *
  * Starts the BLE Foreground Service first (for OS process priority),
- * then launches the full-color Dashboard Activity.
+ * then brings the full-color Dashboard Activity into focus.
  */
 class ChargerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_POWER_CONNECTED) {
-            Log.i("ChargerReceiver", "Galaxy Watch docked on charger puck. Starting BLE service & monitor...")
+        val action = intent.action ?: return
+        val isBoot = action == Intent.ACTION_BOOT_COMPLETED ||
+                     action == "android.intent.action.QUICKBOOT_POWERON" ||
+                     action == "com.htc.intent.action.QUICKBOOT_POWERON"
+        val isCharger = action == Intent.ACTION_POWER_CONNECTED
+
+        if (isBoot || isCharger) {
+            val reason = if (isBoot) "Watch rebooted / boot completed" else "Watch docked on charger puck"
+            Log.i("ChargerReceiver", "$reason. Starting BLE service & bringing monitor to focus...")
 
             // 1. Start the Foreground Service for BLE connection resilience
             val serviceIntent = Intent(context, BleConnectionService::class.java)
-            ContextCompat.startForegroundService(context, serviceIntent)
-
-            // 2. Launch the Dashboard Activity
-            val launchIntent = Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            try {
+                ContextCompat.startForegroundService(context, serviceIntent)
+            } catch (e: Exception) {
+                Log.e("ChargerReceiver", "Failed to start BleConnectionService: ${e.message}")
             }
-            context.startActivity(launchIntent)
+
+            // 2. Launch the Dashboard Activity directly into focus
+            val launchIntent = Intent(context, MainActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                )
+            }
+            try {
+                context.startActivity(launchIntent)
+            } catch (e: Exception) {
+                Log.e("ChargerReceiver", "Failed to start MainActivity directly: ${e.message}")
+            }
         }
     }
 }
